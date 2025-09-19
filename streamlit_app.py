@@ -17,7 +17,17 @@ import sqlite3
 import struct
 import zlib
 import requests
-from config import get_api_url, is_api_configured, API_TIMEOUT, MAX_KML_SIZE_MB
+
+# Configuration API directe
+API_BASE_URL = "https://kml-api-docker.onrender.com"
+API_TIMEOUT = 300
+MAX_KML_SIZE_MB = 50
+
+def get_api_url():
+    return API_BASE_URL
+
+def is_api_configured():
+    return not API_BASE_URL.startswith("https://your-api-url")
 
 try:
     import rasterio
