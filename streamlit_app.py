@@ -16,6 +16,8 @@ import json
 import sqlite3
 import struct
 import zlib
+import requests
+from config import get_api_url, is_api_configured, API_TIMEOUT, MAX_KML_SIZE_MB
 
 try:
     import rasterio
@@ -30,6 +32,8 @@ st.set_page_config(
     page_title="Générateur KML pour SDVFR",
     layout="wide"
 )
+
+# Configuration API chargée depuis config.py
 
 # Version ultra-minimaliste pour iOS 26
 
@@ -530,6 +534,45 @@ def generate_kml():
 
     return kml
 
+def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted_tiles"):
+    """Convertit un KML en MBTiles via l'API FastAPI"""
+    try:
+        # Créer un fichier temporaire pour le KML
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.kml', delete=False, encoding='utf-8') as tmp_file:
+            tmp_file.write(kml_content)
+            tmp_file_path = tmp_file.name
+        
+        # Préparer la requête à l'API
+        with open(tmp_file_path, 'rb') as f:
+            files = {'file': (f'{name}.kml', f, 'application/vnd.google-earth.kml+xml')}
+            data = {
+                'min_zoom': min_zoom,
+                'max_zoom': max_zoom,
+                'name': name
+            }
+            
+            # Envoyer la requête à l'API
+            response = requests.post(
+                f"{get_api_url()}/convert-to-mbtiles",
+                files=files,
+                data=data,
+                timeout=API_TIMEOUT
+            )
+        
+        # Nettoyer le fichier temporaire
+        os.unlink(tmp_file_path)
+        
+        if response.status_code == 200:
+            return response.content
+        else:
+            error_msg = response.json().get('detail', 'Erreur inconnue') if response.headers.get('content-type') == 'application/json' else response.text
+            raise Exception(f"Erreur API: {error_msg}")
+            
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Erreur de connexion à l'API: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Erreur lors de la conversion: {str(e)}")
+
 
 
 def process_tiff_overlay(tiff_path):
@@ -851,17 +894,67 @@ with tab1:
             
             filename = st.text_input("Nom du fichier KML", value="export_sdvfr", placeholder="Nom sans extension")
             
-            if st.button("📥 Générer KML"):
-                clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
+            col_kml, col_mbtiles = st.columns(2)
+            
+            with col_kml:
+                if st.button("📥 Générer KML"):
+                    clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
+                    
+                    kml = generate_kml()
+                    kml_str = kml.kml()
+                    st.download_button(
+                        label="💾 Télécharger le KML",
+                        data=kml_str,
+                        file_name=f"{clean_filename}.kml",
+                        mime="application/vnd.google-earth.kml+xml"
+                    )
+            
+            with col_mbtiles:
+                # Vérifier si l'API est configurée
+                if not is_api_configured():
+                    st.warning("⚠️ API non configurée")
+                    st.button("🗺️ Générer MBTiles", disabled=True)
+                elif st.button("🗺️ Générer MBTiles"):
+                    clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
+                    
+                    with st.spinner("Conversion en cours via Tippecanoe..."):
+                        try:
+                            kml = generate_kml()
+                            kml_str = kml.kml()
+                            
+                            # Paramètres de conversion
+                            min_zoom = st.session_state.get('mbtiles_min_zoom', 0)
+                            max_zoom = st.session_state.get('mbtiles_max_zoom', 14)
+                            
+                            mbtiles_data = convert_kml_to_mbtiles(
+                                kml_str, 
+                                min_zoom=min_zoom, 
+                                max_zoom=max_zoom, 
+                                name=clean_filename
+                            )
+                            
+                            st.download_button(
+                                label="💾 Télécharger MBTiles",
+                                data=mbtiles_data,
+                                file_name=f"{clean_filename}.mbtiles",
+                                mime="application/octet-stream"
+                            )
+                            st.success("✅ MBTiles généré avec succès!")
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
+                            st.info("💡 Vérifiez que l'API de conversion est accessible")
+            
+            # Paramètres MBTiles
+            with st.expander("⚙️ Paramètres MBTiles"):
+                col_min, col_max = st.columns(2)
+                with col_min:
+                    min_zoom = st.slider("Zoom minimum", 0, 18, 0, key="mbtiles_min_zoom")
+                with col_max:
+                    max_zoom = st.slider("Zoom maximum", 0, 18, 14, key="mbtiles_max_zoom")
                 
-                kml = generate_kml()
-                kml_str = kml.kml()
-                st.download_button(
-                    label="💾 Télécharger le KML",
-                    data=kml_str,
-                    file_name=f"{clean_filename}.kml",
-                    mime="application/vnd.google-earth.kml+xml"
-                )
+                st.info(f"📊 Niveaux de zoom: {min_zoom} à {max_zoom}")
+                st.caption("⚠️ Plus de niveaux = fichier plus volumineux")
         else:
             st.info("Aucune donnée à exporter. Créez d'abord des objets.")
             st.info("💡 **Format KML :** Compatible Google Earth et SDVFR classique")
