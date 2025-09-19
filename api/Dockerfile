@@ -22,8 +22,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie du code
-COPY . .
+# Copie du code API seulement
+COPY main.py .
 
 # Port d'exposition
 EXPOSE 8000
