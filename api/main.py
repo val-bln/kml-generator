@@ -9,6 +9,21 @@ from pathlib import Path
 
 app = FastAPI(title="KML to MBTiles Converter API")
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "tippecanoe_available": check_tippecanoe()}
+
+def check_tippecanoe():
+    try:
+        result = subprocess.run(["tippecanoe", "--version"], capture_output=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+@app.get("/")
+async def root():
+    return {"message": "API KML vers MBTiles", "status": "operational"}
+
 @app.post("/convert-to-mbtiles")
 async def convert_kml_to_mbtiles(
     file: UploadFile = File(...),
@@ -16,22 +31,11 @@ async def convert_kml_to_mbtiles(
     max_zoom: int = 14,
     name: str = "converted_tiles"
 ):
-    """Convertit un fichier KML en MBTiles via Tippecanoe"""
-    
     if not file.filename.endswith('.kml'):
         raise HTTPException(status_code=400, detail="Le fichier doit être un KML")
     
-    # Créer un dossier temporaire unique
-    temp_dir = Path(tempfile.mkdtemp())
-    temp_id = str(uuid.uuid4())
-    
-    try:
-        # Sauvegarder le fichier KML
-        kml_path = temp_dir / f"{temp_id}.kml"
-        with open(kml_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        
-        # Convertir KML en GeoJSON (requis par Tippecanoe)
-        geojson_path = temp_dir / f"{temp_id}.geojson"
-        convert_kml_to_geojson(kml_path, ge
+    return {"message": "Conversion en cours de développement"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
