@@ -2,5 +2,6 @@ services:
   - type: web
     name: kml-generator
     env: docker
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: ./api/Dockerfile
+    rootDir: ./api
     plan: free
