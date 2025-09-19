@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Installation des dépendances système minimales
+# Installation des dépendances système pour Tippecanoe
 RUN apt-get update && apt-get install -y \
     git \
     build-essential \
@@ -18,7 +18,7 @@ RUN git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe && \
 # Configuration Python
 WORKDIR /app
 COPY requirements.txt .
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copie du code
 COPY . .
