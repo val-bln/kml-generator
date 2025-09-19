@@ -1,10 +1,6 @@
 services:
   - type: web
-    name: kml-mbtiles-api
+    name: kml-generator
     env: docker
     dockerfilePath: ./Dockerfile
-    plan: starter
-    healthCheckPath: /health
-    envVars:
-      - key: PORT
-        value: 8000
+    plan: free

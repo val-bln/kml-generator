@@ -1,24 +1,26 @@
 FROM python:3.11-slim
 
-# Installation des dépendances système minimales
+# Installation des dépendances système pour Tippecanoe
 RUN apt-get update && apt-get install -y \
     git \
     build-essential \
     libsqlite3-dev \
     zlib1g-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation de Tippecanoe
+# Installation de Tippecanoe avec gestion d'erreurs
 RUN git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe && \
     cd /tmp/tippecanoe && \
-    make -j2 && \
+    make -j$(nproc) && \
     make install && \
-    rm -rf /tmp/tippecanoe
+    rm -rf /tmp/tippecanoe && \
+    tippecanoe --version
 
 # Configuration Python
 WORKDIR /app
 COPY requirements.txt .
-RUN pip3 install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copie du code
 COPY . .
