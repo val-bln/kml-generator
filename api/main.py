@@ -15,6 +15,80 @@ async def root():
     """Endpoint racine"""
     return {"message": "KML to MBTiles Converter API", "status": "running"}
 
+@app.post("/convert-geojson-to-mbtiles")
+async def convert_geojson_to_mbtiles(
+    file: UploadFile = File(...),
+    min_zoom: int = 0,
+    max_zoom: int = 14,
+    name: str = "converted_tiles",
+    preserve_properties: bool = True,
+    simplification: float = 0.0
+):
+    """Convertit un fichier GeoJSON en MBTiles via Tippecanoe"""
+    
+    if not file.filename.endswith('.geojson'):
+        raise HTTPException(status_code=400, detail="Le fichier doit être un GeoJSON")
+    
+    # Créer un dossier temporaire unique
+    temp_dir = Path(tempfile.mkdtemp())
+    temp_id = str(uuid.uuid4())
+    
+    try:
+        # Sauvegarder le fichier GeoJSON
+        geojson_path = temp_dir / f"{temp_id}.geojson"
+        with open(geojson_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Générer MBTiles avec Tippecanoe
+        mbtiles_path = temp_dir / f"{name}.mbtiles"
+        
+        tippecanoe_cmd = [
+            "tippecanoe",
+            "-o", str(mbtiles_path),
+            "-z", str(max_zoom),
+            "-Z", str(min_zoom),
+            "--force"
+        ]
+        
+        # Paramètres de base pour assurer la génération
+        if simplification == 0.0:
+            tippecanoe_cmd.extend([
+                "--no-simplification",
+                "--no-feature-limit",
+                "--no-tile-size-limit"
+            ])
+        else:
+            tippecanoe_cmd.extend(["-S", str(simplification)])
+            
+        # Préserver les propriétés de base
+        if preserve_properties:
+            tippecanoe_cmd.append("--preserve-input-order")
+            
+        tippecanoe_cmd.append(str(geojson_path))
+        
+        result = subprocess.run(tippecanoe_cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Erreur Tippecanoe: {result.stderr}"
+            )
+        
+        # Retourner le fichier MBTiles
+        return FileResponse(
+            path=mbtiles_path,
+            filename=f"{name}.mbtiles",
+            media_type="application/octet-stream"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        # Nettoyage (optionnel, les fichiers temp seront supprimés automatiquement)
+        pass
+
 @app.post("/convert-to-mbtiles")
 async def convert_kml_to_mbtiles(
     file: UploadFile = File(...),
