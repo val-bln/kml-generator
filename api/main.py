@@ -51,31 +51,22 @@ async def convert_kml_to_mbtiles(
             "-o", str(mbtiles_path),
             "-z", str(max_zoom),
             "-Z", str(min_zoom),
-            "--force",
-            "--no-feature-limit",
-            "--no-tile-size-limit",
-            "--detect-shared-borders",  # Améliore le rendu des polygones
-            "--buffer=0"  # Pas de buffer pour préserver la géométrie exacte
+            "--force"
         ]
         
-        # Préserver la géométrie si demandé
+        # Paramètres de base pour assurer la génération
         if simplification == 0.0:
             tippecanoe_cmd.extend([
-                "--no-simplification", 
-                "--no-tiny-polygon-reduction",
-                "--no-polygon-splitting",  # Empêche la division des polygones
-                "--no-clipping"  # Pas de découpage
+                "--no-simplification",
+                "--no-feature-limit",
+                "--no-tile-size-limit"
             ])
         else:
             tippecanoe_cmd.extend(["-S", str(simplification)])
             
-        # Préserver toutes les propriétés
+        # Préserver les propriétés de base
         if preserve_properties:
-            tippecanoe_cmd.extend([
-                "--preserve-input-order",
-                "--coalesce-densest-as-needed",  # Coalescence intelligente
-                "--extend-zooms-if-still-dropping"  # Étend les zooms si nécessaire
-            ])
+            tippecanoe_cmd.append("--preserve-input-order")
             
         tippecanoe_cmd.append(str(geojson_path))
         
@@ -124,8 +115,9 @@ def convert_kml_to_geojson(kml_path: Path, geojson_path: Path):
         convert_kml_manual(kml_path, geojson_path)
 
 def convert_kml_manual(kml_path: Path, geojson_path: Path):
-    """Conversion KML vers GeoJSON optimisée pour SDVFR Next"""
+    """Conversion KML vers GeoJSON avec parsing robuste des coordonnées"""
     import xml.etree.ElementTree as ET
+    import re
     
     tree = ET.parse(kml_path)
     root = tree.getroot()
@@ -148,19 +140,19 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
         
         # Extraire toutes les propriétés
         name = placemark.find('kml:name', ns)
-        if name is not None:
-            properties['name'] = name.text
+        if name is not None and name.text:
+            properties['name'] = name.text.strip()
             
         description = placemark.find('kml:description', ns)
-        if description is not None:
-            properties['description'] = description.text
+        if description is not None and description.text:
+            properties['description'] = description.text.strip()
             
         # Extraire les données étendues
         for extended_data in placemark.findall('.//kml:ExtendedData/kml:Data', ns):
             data_name = extended_data.get('name')
             value_elem = extended_data.find('kml:value', ns)
-            if data_name and value_elem is not None:
-                properties[data_name] = value_elem.text
+            if data_name and value_elem is not None and value_elem.text:
+                properties[data_name] = value_elem.text.strip()
         
         # Extraire et appliquer les styles
         style_props = extract_placemark_style(placemark, styles, ns)
@@ -168,53 +160,31 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
             
         # Points
         point = placemark.find('.//kml:Point/kml:coordinates', ns)
-        if point is not None:
-            coords_text = point.text.strip()
-            coords = coords_text.split(',')
-            if len(coords) >= 2:
-                coordinates = [float(coords[0]), float(coords[1])]
-                if len(coords) >= 3:
-                    coordinates.append(float(coords[2]))  # altitude
-                
-                # Propriétés par défaut pour les points
-                if 'marker-color' not in properties:
-                    properties['marker-color'] = '#ff0000'
-                if 'marker-size' not in properties:
-                    properties['marker-size'] = 'medium'
-                if 'marker-symbol' not in properties:
-                    properties['marker-symbol'] = 'circle'
+        if point is not None and point.text:
+            coords = parse_coordinates(point.text)
+            if coords and len(coords) == 1:
+                properties.setdefault('marker-color', '#ff0000')
+                properties.setdefault('marker-size', 'medium')
+                properties.setdefault('marker-symbol', 'circle')
                     
                 feature = {
                     "type": "Feature",
                     "properties": properties,
                     "geometry": {
                         "type": "Point",
-                        "coordinates": coordinates
+                        "coordinates": coords[0]
                     }
                 }
                 features.append(feature)
         
         # LineStrings
         linestring = placemark.find('.//kml:LineString/kml:coordinates', ns)
-        if linestring is not None:
-            coords_text = linestring.text.strip()
-            coords = []
-            for coord_pair in coords_text.split():
-                parts = coord_pair.split(',')
-                if len(parts) >= 2:
-                    coord = [float(parts[0]), float(parts[1])]
-                    if len(parts) >= 3:
-                        coord.append(float(parts[2]))  # altitude
-                    coords.append(coord)
-            
-            if coords:
-                # Propriétés par défaut pour les lignes
-                if 'stroke' not in properties:
-                    properties['stroke'] = '#ff0000'
-                if 'stroke-width' not in properties:
-                    properties['stroke-width'] = 2
-                if 'stroke-opacity' not in properties:
-                    properties['stroke-opacity'] = 1.0
+        if linestring is not None and linestring.text:
+            coords = parse_coordinates(linestring.text)
+            if coords and len(coords) >= 2:
+                properties.setdefault('stroke', '#ff0000')
+                properties.setdefault('stroke-width', 2)
+                properties.setdefault('stroke-opacity', 1.0)
                     
                 feature = {
                     "type": "Feature",
@@ -230,57 +200,42 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
         polygon = placemark.find('.//kml:Polygon', ns)
         if polygon is not None:
             # Outer boundary
-            outer_coords = []
             outer_ring = polygon.find('.//kml:outerBoundaryIs/kml:LinearRing/kml:coordinates', ns)
-            if outer_ring is not None:
-                coords_text = outer_ring.text.strip()
-                for coord_pair in coords_text.split():
-                    parts = coord_pair.split(',')
-                    if len(parts) >= 2:
-                        coord = [float(parts[0]), float(parts[1])]
-                        if len(parts) >= 3:
-                            coord.append(float(parts[2]))  # altitude
-                        outer_coords.append(coord)
-            
-            # Inner boundaries (holes)
-            inner_coords = []
-            for inner_ring in polygon.findall('.//kml:innerBoundaryIs/kml:LinearRing/kml:coordinates', ns):
-                hole_coords = []
-                coords_text = inner_ring.text.strip()
-                for coord_pair in coords_text.split():
-                    parts = coord_pair.split(',')
-                    if len(parts) >= 2:
-                        coord = [float(parts[0]), float(parts[1])]
-                        if len(parts) >= 3:
-                            coord.append(float(parts[2]))  # altitude
-                        hole_coords.append(coord)
-                if hole_coords:
-                    inner_coords.append(hole_coords)
-            
-            if outer_coords:
-                polygon_coords = [outer_coords] + inner_coords
+            if outer_ring is not None and outer_ring.text:
+                outer_coords = parse_coordinates(outer_ring.text)
                 
-                # Propriétés par défaut pour les polygones
-                if 'stroke' not in properties:
-                    properties['stroke'] = '#ff0000'
-                if 'stroke-width' not in properties:
-                    properties['stroke-width'] = 2
-                if 'stroke-opacity' not in properties:
-                    properties['stroke-opacity'] = 1.0
-                if 'fill' not in properties:
-                    properties['fill'] = '#ff0000'
-                if 'fill-opacity' not in properties:
-                    properties['fill-opacity'] = 0.3
+                if outer_coords and len(outer_coords) >= 3:
+                    # Assurer que le polygone est fermé
+                    if outer_coords[0] != outer_coords[-1]:
+                        outer_coords.append(outer_coords[0])
                     
-                feature = {
-                    "type": "Feature",
-                    "properties": properties,
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": polygon_coords
+                    # Inner boundaries (holes)
+                    inner_coords = []
+                    for inner_ring in polygon.findall('.//kml:innerBoundaryIs/kml:LinearRing/kml:coordinates', ns):
+                        if inner_ring.text:
+                            hole_coords = parse_coordinates(inner_ring.text)
+                            if hole_coords and len(hole_coords) >= 3:
+                                if hole_coords[0] != hole_coords[-1]:
+                                    hole_coords.append(hole_coords[0])
+                                inner_coords.append(hole_coords)
+                    
+                    polygon_coords = [outer_coords] + inner_coords
+                    
+                    properties.setdefault('stroke', '#ff0000')
+                    properties.setdefault('stroke-width', 2)
+                    properties.setdefault('stroke-opacity', 1.0)
+                    properties.setdefault('fill', '#ff0000')
+                    properties.setdefault('fill-opacity', 0.3)
+                        
+                    feature = {
+                        "type": "Feature",
+                        "properties": properties,
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": polygon_coords
+                        }
                     }
-                }
-                features.append(feature)
+                    features.append(feature)
     
     geojson = {
         "type": "FeatureCollection",
@@ -289,6 +244,38 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
     
     with open(geojson_path, 'w', encoding='utf-8') as f:
         json.dump(geojson, f, ensure_ascii=False, indent=2)
+
+def parse_coordinates(coord_text):
+    """Parse robuste des coordonnées KML"""
+    if not coord_text:
+        return []
+    
+    coords = []
+    # Nettoyer le texte et séparer par espaces ou retours à la ligne
+    coord_text = re.sub(r'\s+', ' ', coord_text.strip())
+    
+    # Séparer les triplets de coordonnées
+    coord_pairs = []
+    for part in coord_text.split():
+        if ',' in part:
+            coord_pairs.append(part)
+        elif coord_pairs:  # Continuer le dernier triplet si pas de virgule
+            coord_pairs[-1] += ' ' + part
+    
+    for coord_pair in coord_pairs:
+        try:
+            parts = coord_pair.strip().split(',')
+            if len(parts) >= 2:
+                lon = float(parts[0].strip())
+                lat = float(parts[1].strip())
+                coord = [lon, lat]
+                if len(parts) >= 3 and parts[2].strip():
+                    coord.append(float(parts[2].strip()))  # altitude
+                coords.append(coord)
+        except (ValueError, IndexError):
+            continue
+    
+    return coords
 
 def extract_style_properties(style_elem, ns):
     """Extrait les propriétés de style d'un élément Style KML"""
@@ -371,6 +358,39 @@ def kml_color_to_opacity(kml_color):
         alpha = int(kml_color[0:2], 16)
         return alpha / 255.0
     return 1.0
+
+@app.post("/debug-kml")
+async def debug_kml_conversion(file: UploadFile = File(...)):
+    """Debug de la conversion KML vers GeoJSON"""
+    if not file.filename.endswith('.kml'):
+        raise HTTPException(status_code=400, detail="Le fichier doit être un KML")
+    
+    temp_dir = Path(tempfile.mkdtemp())
+    temp_id = str(uuid.uuid4())
+    
+    try:
+        # Sauvegarder le fichier KML
+        kml_path = temp_dir / f"{temp_id}.kml"
+        with open(kml_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Convertir en GeoJSON
+        geojson_path = temp_dir / f"{temp_id}.geojson"
+        convert_kml_to_geojson(kml_path, geojson_path)
+        
+        # Lire le GeoJSON généré
+        with open(geojson_path, 'r', encoding='utf-8') as f:
+            geojson_data = json.load(f)
+        
+        return {
+            "kml_size": len(content),
+            "features_count": len(geojson_data.get('features', [])),
+            "geojson": geojson_data
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health_check():
