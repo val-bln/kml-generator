@@ -5,6 +5,7 @@ import os
 import subprocess
 import json
 import uuid
+import re
 from pathlib import Path
 
 app = FastAPI(title="KML to MBTiles Converter API")
