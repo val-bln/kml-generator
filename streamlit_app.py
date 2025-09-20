@@ -544,8 +544,8 @@ def generate_kml():
 
     return kml
 
-def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted_tiles"):
-    """Convertit un KML en MBTiles via l'API FastAPI"""
+def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted_tiles", preserve_properties=True, simplification=0.0):
+    """Convertit un KML en MBTiles via l'API FastAPI avec contrôle de la fidélité"""
     try:
         # Créer un fichier temporaire pour le KML
         with tempfile.NamedTemporaryFile(mode='w', suffix='.kml', delete=False, encoding='utf-8') as tmp_file:
@@ -558,7 +558,9 @@ def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted
             data = {
                 'min_zoom': min_zoom,
                 'max_zoom': max_zoom,
-                'name': name
+                'name': name,
+                'preserve_properties': preserve_properties,
+                'simplification': simplification
             }
             
             # Envoyer la requête à l'API
@@ -940,7 +942,9 @@ with tab1:
                                 kml_str, 
                                 min_zoom=min_zoom, 
                                 max_zoom=max_zoom, 
-                                name=clean_filename
+                                name=clean_filename,
+                                preserve_properties=preserve_properties,
+                                simplification=simplification
                             )
                             
                             st.download_button(
@@ -963,8 +967,26 @@ with tab1:
                 with col_max:
                     max_zoom = st.slider("Zoom maximum", 0, 18, 14, key="mbtiles_max_zoom")
                 
+                st.markdown("**🎯 Fidélité de conversion**")
+                preserve_properties = st.checkbox("Préserver toutes les propriétés KML", value=True, key="preserve_props")
+                
+                simplification = st.selectbox(
+                    "Simplification géométrique",
+                    [(0.0, "Aucune (fidélité maximale)"), 
+                     (0.1, "Très faible"), 
+                     (0.5, "Faible"), 
+                     (1.0, "Modérée"), 
+                     (2.0, "Élevée")],
+                    format_func=lambda x: x[1],
+                    key="simplification_level"
+                )[0]
+                
                 st.info(f"📊 Niveaux de zoom: {min_zoom} à {max_zoom}")
-                st.caption("⚠️ Plus de niveaux = fichier plus volumineux")
+                if simplification == 0.0:
+                    st.success("🎯 Configuration pour fidélité maximale")
+                else:
+                    st.warning(f"⚠️ Simplification activée: {simplification}")
+                st.caption("💡 Fidélité maximale = fichier plus volumineux mais plus précis")
         else:
             st.info("Aucune donnée à exporter. Créez d'abord des objets.")
             st.info("💡 **Format KML :** Compatible Google Earth et SDVFR classique")
