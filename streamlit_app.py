@@ -590,6 +590,25 @@ def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted
     except Exception as e:
         raise Exception(f"Erreur lors de la conversion: {str(e)}")
 
+def debug_kml_conversion(kml_content):
+    """Debug la conversion KML vers GeoJSON"""
+    if not is_api_configured():
+        st.error("API non configurée")
+        return None
+    
+    try:
+        files = {'file': ('test.kml', kml_content, 'application/vnd.google-earth.kml+xml')}
+        response = requests.post(f"{get_api_url()}/debug-kml", files=files, timeout=30)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error(f"Erreur debug: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        st.error(f"Erreur debug: {e}")
+        return None
+
 
 
 def process_tiff_overlay(tiff_path):
@@ -1921,6 +1940,68 @@ with tab5:
 
 # ONGLET DIVERS
 with tab6:
+    st.subheader("🔧 Outils de diagnostic")
+    
+    # Test de l'API
+    if st.button("🔍 Tester l'API MBTiles"):
+        if not is_api_configured():
+            st.error("API non configurée")
+        else:
+            try:
+                response = requests.get(f"{get_api_url()}/health", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('tippecanoe_available'):
+                        st.success("✅ API opérationnelle avec Tippecanoe")
+                    else:
+                        st.warning("⚠️ API opérationnelle mais Tippecanoe indisponible")
+                else:
+                    st.error(f"❌ API inaccessible (status: {response.status_code})")
+            except Exception as e:
+                st.error(f"❌ Erreur de connexion API: {e}")
+    
+    # Test de conversion simple
+    if st.button("🧪 Test conversion simple"):
+        if not is_api_configured():
+            st.error("API non configurée")
+        else:
+            # Créer un KML de test simple
+            test_kml = '''<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <name>Test Point</name>
+      <Point>
+        <coordinates>-1.12,44.52,0</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <name>Test Line</name>
+      <LineString>
+        <coordinates>-1.12,44.52,0 -1.11,44.53,0</coordinates>
+      </LineString>
+    </Placemark>
+    <Placemark>
+      <name>Test Circle</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>-1.12,44.52,0 -1.11,44.52,0 -1.11,44.53,0 -1.12,44.53,0 -1.12,44.52,0</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>'''
+            
+            debug_result = debug_kml_conversion(test_kml)
+            if debug_result:
+                st.success(f"✅ Conversion réussie: {debug_result['features_count']} objets détectés")
+                st.json(debug_result['geojson'])
+            else:
+                st.error("❌ Échec de la conversion")
+    
+    st.markdown("---")
     st.subheader("Calculer distance et gisement")
     
     if len(st.session_state.points_data) >= 2:
