@@ -549,6 +549,196 @@ def generate_kml():
 
     return kml
 
+def generate_geojson():
+    """Génère un GeoJSON optimisé pour Tippecanoe"""
+    features = []
+    
+    # Mapping couleurs standardisé
+    color_map = {
+        'rouge': '#ff0000', 'vert': '#00ff00', 'bleu': '#0000ff',
+        'jaune': '#ffff00', 'orange': '#ff8000', 'cyan': '#00ffff', 
+        'magenta': '#ff00ff', 'noir': '#000000', 'blanc': '#ffffff'
+    }
+    
+    # Points - format Tippecanoe optimisé
+    for point in st.session_state.points_data:
+        features.append({
+            "type": "Feature",
+            "properties": {
+                "name": point['name'],
+                "description": point.get('description', ''),
+                "marker-color": "#ff0000",
+                "marker-size": "medium",
+                "marker-symbol": "circle"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [float(point['lon']), float(point['lat'])]
+            }
+        })
+    
+    # Lignes - propriétés de style Tippecanoe
+    for line in st.session_state.lines_data:
+        # Valider les coordonnées
+        valid_coords = []
+        for coord in line['points']:
+            if len(coord) >= 2:
+                valid_coords.append([float(coord[0]), float(coord[1])])
+        
+        if len(valid_coords) >= 2:
+            features.append({
+                "type": "Feature",
+                "properties": {
+                    "name": line['name'],
+                    "description": line.get('description', ''),
+                    "stroke": color_map.get(line.get('color', 'rouge'), '#ff0000'),
+                    "stroke-width": int(line.get('width', 2)),
+                    "stroke-opacity": 1.0
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": valid_coords
+                }
+            })
+    
+    # Cercles et arcs
+    for circle in st.session_state.circles_data:
+        if 'points' in circle and circle['points']:
+            # Valider et nettoyer les coordonnées
+            valid_coords = []
+            for coord in circle['points']:
+                if len(coord) >= 2:
+                    valid_coords.append([float(coord[0]), float(coord[1])])
+            
+            if len(valid_coords) >= 2:
+                stroke_color = color_map.get(circle.get('color', 'rouge'), '#ff0000')
+                
+                # Arc ouvert = LineString
+                if circle.get('type') == 'Arc' and not circle.get('close_arc', True):
+                    features.append({
+                        "type": "Feature",
+                        "properties": {
+                            "name": circle['name'],
+                            "description": circle.get('description', ''),
+                            "stroke": stroke_color,
+                            "stroke-width": int(circle.get('width', 2)),
+                            "stroke-opacity": 1.0
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": valid_coords
+                        }
+                    })
+                else:
+                    # Cercle/arc fermé = Polygon
+                    # Assurer fermeture du polygone
+                    if valid_coords[0] != valid_coords[-1]:
+                        valid_coords.append(valid_coords[0])
+                    
+                    # Vérifier minimum 4 points pour un polygone valide
+                    if len(valid_coords) >= 4:
+                        properties = {
+                            "name": circle['name'],
+                            "description": circle.get('description', ''),
+                            "stroke": stroke_color,
+                            "stroke-width": int(circle.get('width', 2)),
+                            "stroke-opacity": 1.0
+                        }
+                        
+                        # Ajouter remplissage si demandé
+                        if circle.get('fill', False):
+                            properties["fill"] = stroke_color
+                            properties["fill-opacity"] = 0.3
+                        else:
+                            properties["fill-opacity"] = 0.0
+                        
+                        features.append({
+                            "type": "Feature",
+                            "properties": properties,
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [valid_coords]
+                            }
+                        })
+    
+    # Rectangles et polygones
+    for rect in st.session_state.rectangles_data:
+        if 'points' in rect and rect['points']:
+            # Valider et nettoyer les coordonnées
+            valid_coords = []
+            for coord in rect['points']:
+                if len(coord) >= 2:
+                    valid_coords.append([float(coord[0]), float(coord[1])])
+            
+            if len(valid_coords) >= 3:
+                # Assurer fermeture du polygone
+                if valid_coords[0] != valid_coords[-1]:
+                    valid_coords.append(valid_coords[0])
+                
+                # Vérifier minimum 4 points pour un polygone valide
+                if len(valid_coords) >= 4:
+                    stroke_color = color_map.get(rect.get('color', 'rouge'), '#ff0000')
+                    
+                    properties = {
+                        "name": rect['name'],
+                        "description": rect.get('description', ''),
+                        "stroke": stroke_color,
+                        "stroke-width": int(rect.get('width', 2)),
+                        "stroke-opacity": 1.0
+                    }
+                    
+                    # Ajouter remplissage si demandé
+                    if rect.get('fill', False):
+                        properties["fill"] = stroke_color
+                        properties["fill-opacity"] = 0.3
+                    else:
+                        properties["fill-opacity"] = 0.0
+                    
+                    features.append({
+                        "type": "Feature",
+                        "properties": properties,
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [valid_coords]
+                        }
+                    })
+    
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
+
+def convert_geojson_to_mbtiles(geojson_data, min_zoom=0, max_zoom=14, name="converted_tiles", preserve_properties=True, simplification=0.0):
+    """Convertit un GeoJSON en MBTiles via l'API FastAPI"""
+    try:
+        # Envoyer directement le GeoJSON à l'API
+        files = {'file': (f'{name}.geojson', json.dumps(geojson_data), 'application/geo+json')}
+        data = {
+            'min_zoom': min_zoom,
+            'max_zoom': max_zoom,
+            'name': name,
+            'preserve_properties': preserve_properties,
+            'simplification': simplification
+        }
+        
+        response = requests.post(
+            f"{get_api_url()}/convert-geojson-to-mbtiles",
+            files=files,
+            data=data,
+            timeout=API_TIMEOUT
+        )
+        
+        if response.status_code == 200:
+            return response.content
+        else:
+            error_msg = response.json().get('detail', 'Erreur inconnue') if response.headers.get('content-type') == 'application/json' else response.text
+            raise Exception(f"Erreur API: {error_msg}")
+            
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Erreur de connexion à l'API: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Erreur lors de la conversion: {str(e)}")
+
 def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted_tiles", preserve_properties=True, simplification=0.0):
     """Convertit un KML en MBTiles via l'API FastAPI avec contrôle de la fidélité"""
     try:
@@ -938,8 +1128,8 @@ with tab1:
                     
                     with st.spinner("Conversion en cours via Tippecanoe..."):
                         try:
-                            kml = generate_kml()
-                            kml_str = kml.kml()
+                            # Générer directement le GeoJSON
+                            geojson_data = generate_geojson()
                             
                             # Paramètres de conversion
                             min_zoom = st.session_state.get('mbtiles_min_zoom', 0)
@@ -949,8 +1139,8 @@ with tab1:
                             if isinstance(simplif_level, tuple):
                                 simplif_level = simplif_level[0]
                             
-                            mbtiles_data = convert_kml_to_mbtiles(
-                                kml_str, 
+                            mbtiles_data = convert_geojson_to_mbtiles(
+                                geojson_data, 
                                 min_zoom=min_zoom, 
                                 max_zoom=max_zoom, 
                                 name=clean_filename,
@@ -1943,6 +2133,15 @@ with tab6:
             except Exception as e:
                 st.error(f"❌ Erreur de connexion API: {e}")
     
+    # Test GeoJSON direct
+    if st.button("🧪 Test GeoJSON direct"):
+        if st.session_state.points_data or st.session_state.lines_data or st.session_state.circles_data or st.session_state.rectangles_data:
+            geojson_data = generate_geojson()
+            st.success(f"✅ GeoJSON généré: {len(geojson_data['features'])} objets")
+            st.json(geojson_data)
+        else:
+            st.info("Créez d'abord des objets pour tester")
+    
     # Test de conversion simple
     if st.button("🧪 Test conversion MBTiles simple"):
         if not is_api_configured():
@@ -1978,7 +2177,29 @@ with tab6:
 </kml>'''
             
             try:
-                mbtiles_data = convert_kml_to_mbtiles(test_kml, name="test_simple")
+                # Test avec GeoJSON direct
+                test_geojson = {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"name": "Test Point"},
+                            "geometry": {"type": "Point", "coordinates": [-1.12, 44.52]}
+                        },
+                        {
+                            "type": "Feature", 
+                            "properties": {"name": "Test Line"},
+                            "geometry": {"type": "LineString", "coordinates": [[-1.12, 44.52], [-1.11, 44.53]]}
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {"name": "Test Polygon"},
+                            "geometry": {"type": "Polygon", "coordinates": [[[-1.12, 44.52], [-1.11, 44.52], [-1.11, 44.53], [-1.12, 44.53], [-1.12, 44.52]]]}
+                        }
+                    ]
+                }
+                
+                mbtiles_data = convert_geojson_to_mbtiles(test_geojson, name="test_simple")
                 st.success(f"✅ Conversion MBTiles réussie! Taille: {len(mbtiles_data)} bytes")
                 st.download_button(
                     label="💾 Télécharger test MBTiles",
