@@ -937,8 +937,10 @@ with tab1:
                             # Paramètres de conversion
                             min_zoom = st.session_state.get('mbtiles_min_zoom', 0)
                             max_zoom = st.session_state.get('mbtiles_max_zoom', 14)
-                            preserve_props = preserve_properties
-                            simplif_level = simplification
+                            preserve_props = st.session_state.get('preserve_props', True)
+                            simplif_level = st.session_state.get('simplification_select', (0.0, "Aucune (fidélité maximale)"))
+                            if isinstance(simplif_level, tuple):
+                                simplif_level = simplif_level[0]
                             
                             mbtiles_data = convert_kml_to_mbtiles(
                                 kml_str, 
