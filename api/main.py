@@ -111,7 +111,7 @@ def convert_kml_to_geojson(kml_path: Path, geojson_path: Path):
         convert_kml_manual(kml_path, geojson_path)
 
 def convert_kml_manual(kml_path: Path, geojson_path: Path):
-    """Conversion KML vers GeoJSON avec préservation maximale des données"""
+    """Conversion KML vers GeoJSON optimisée pour SDVFR Next"""
     import xml.etree.ElementTree as ET
     
     tree = ET.parse(kml_path)
@@ -121,6 +121,13 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
     ns = {'kml': 'http://www.opengis.net/kml/2.2'}
     
     features = []
+    
+    # Extraire les styles définis
+    styles = {}
+    for style in root.findall('.//kml:Style', ns):
+        style_id = style.get('id')
+        if style_id:
+            styles[style_id] = extract_style_properties(style, ns)
     
     # Extraire les placemarks
     for placemark in root.findall('.//kml:Placemark', ns):
@@ -142,10 +149,9 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
             if data_name and value_elem is not None:
                 properties[data_name] = value_elem.text
         
-        # Extraire les styles
-        style_url = placemark.find('kml:styleUrl', ns)
-        if style_url is not None:
-            properties['styleUrl'] = style_url.text
+        # Extraire et appliquer les styles
+        style_props = extract_placemark_style(placemark, styles, ns)
+        properties.update(style_props)
             
         # Points
         point = placemark.find('.//kml:Point/kml:coordinates', ns)
@@ -156,6 +162,14 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
                 coordinates = [float(coords[0]), float(coords[1])]
                 if len(coords) >= 3:
                     coordinates.append(float(coords[2]))  # altitude
+                
+                # Propriétés par défaut pour les points
+                if 'marker-color' not in properties:
+                    properties['marker-color'] = '#ff0000'
+                if 'marker-size' not in properties:
+                    properties['marker-size'] = 'medium'
+                if 'marker-symbol' not in properties:
+                    properties['marker-symbol'] = 'circle'
                     
                 feature = {
                     "type": "Feature",
@@ -181,6 +195,14 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
                     coords.append(coord)
             
             if coords:
+                # Propriétés par défaut pour les lignes
+                if 'stroke' not in properties:
+                    properties['stroke'] = '#ff0000'
+                if 'stroke-width' not in properties:
+                    properties['stroke-width'] = 2
+                if 'stroke-opacity' not in properties:
+                    properties['stroke-opacity'] = 1.0
+                    
                 feature = {
                     "type": "Feature",
                     "properties": properties,
@@ -224,6 +246,19 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
             
             if outer_coords:
                 polygon_coords = [outer_coords] + inner_coords
+                
+                # Propriétés par défaut pour les polygones
+                if 'stroke' not in properties:
+                    properties['stroke'] = '#ff0000'
+                if 'stroke-width' not in properties:
+                    properties['stroke-width'] = 2
+                if 'stroke-opacity' not in properties:
+                    properties['stroke-opacity'] = 1.0
+                if 'fill' not in properties:
+                    properties['fill'] = '#ff0000'
+                if 'fill-opacity' not in properties:
+                    properties['fill-opacity'] = 0.3
+                    
                 feature = {
                     "type": "Feature",
                     "properties": properties,
@@ -241,6 +276,88 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
     
     with open(geojson_path, 'w', encoding='utf-8') as f:
         json.dump(geojson, f, ensure_ascii=False, indent=2)
+
+def extract_style_properties(style_elem, ns):
+    """Extrait les propriétés de style d'un élément Style KML"""
+    style_props = {}
+    
+    # LineStyle
+    line_style = style_elem.find('kml:LineStyle', ns)
+    if line_style is not None:
+        color_elem = line_style.find('kml:color', ns)
+        width_elem = line_style.find('kml:width', ns)
+        
+        if color_elem is not None:
+            kml_color = color_elem.text.strip().lower()
+            style_props['stroke'] = kml_color_to_hex(kml_color)
+            style_props['stroke-opacity'] = kml_color_to_opacity(kml_color)
+            
+        if width_elem is not None:
+            style_props['stroke-width'] = float(width_elem.text)
+    
+    # PolyStyle
+    poly_style = style_elem.find('kml:PolyStyle', ns)
+    if poly_style is not None:
+        color_elem = poly_style.find('kml:color', ns)
+        fill_elem = poly_style.find('kml:fill', ns)
+        
+        if color_elem is not None:
+            kml_color = color_elem.text.strip().lower()
+            style_props['fill'] = kml_color_to_hex(kml_color)
+            style_props['fill-opacity'] = kml_color_to_opacity(kml_color)
+            
+        if fill_elem is not None:
+            style_props['fill-opacity'] = 1.0 if fill_elem.text == '1' else 0.0
+    
+    # IconStyle pour les points
+    icon_style = style_elem.find('kml:IconStyle', ns)
+    if icon_style is not None:
+        color_elem = icon_style.find('kml:color', ns)
+        scale_elem = icon_style.find('kml:scale', ns)
+        
+        if color_elem is not None:
+            kml_color = color_elem.text.strip().lower()
+            style_props['marker-color'] = kml_color_to_hex(kml_color)
+            
+        if scale_elem is not None:
+            style_props['marker-size'] = float(scale_elem.text) * 10  # Conversion échelle
+    
+    return style_props
+
+def extract_placemark_style(placemark, styles, ns):
+    """Extrait le style d'un placemark"""
+    style_props = {}
+    
+    # Style inline
+    inline_style = placemark.find('kml:Style', ns)
+    if inline_style is not None:
+        style_props.update(extract_style_properties(inline_style, ns))
+    
+    # Style référencé
+    style_url = placemark.find('kml:styleUrl', ns)
+    if style_url is not None:
+        style_id = style_url.text.replace('#', '')
+        if style_id in styles:
+            style_props.update(styles[style_id])
+    
+    return style_props
+
+def kml_color_to_hex(kml_color):
+    """Convertit une couleur KML (AABBGGRR) en hex (#RRGGBB)"""
+    if len(kml_color) == 8:
+        # KML: AABBGGRR -> Hex: #RRGGBB
+        r = kml_color[6:8]
+        g = kml_color[4:6]
+        b = kml_color[2:4]
+        return f"#{r}{g}{b}"
+    return "#ff0000"  # Rouge par défaut
+
+def kml_color_to_opacity(kml_color):
+    """Extrait l'opacité d'une couleur KML"""
+    if len(kml_color) == 8:
+        alpha = int(kml_color[0:2], 16)
+        return alpha / 255.0
+    return 1.0
 
 @app.get("/health")
 async def health_check():
