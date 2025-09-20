@@ -937,8 +937,8 @@ with tab1:
                             # Paramètres de conversion
                             min_zoom = st.session_state.get('mbtiles_min_zoom', 0)
                             max_zoom = st.session_state.get('mbtiles_max_zoom', 14)
-                            preserve_props = st.session_state.get('preserve_props', True)
-                            simplif_level = st.session_state.get('simplification_select', (0.0, "Aucune (fidélité maximale)"))[0]
+                            preserve_props = preserve_properties
+                            simplif_level = simplification
                             
                             mbtiles_data = convert_kml_to_mbtiles(
                                 kml_str, 
@@ -989,10 +989,6 @@ with tab1:
                 else:
                     st.warning(f"⚠️ Simplification activée: {simplification}")
                 st.caption("💡 Fidélité maximale = fichier plus volumineux mais plus précis")
-                
-                # Stocker les valeurs dans session_state pour utilisation ultérieure
-                st.session_state['preserve_props'] = preserve_properties
-                st.session_state['simplification_level'] = (simplification, "")
         else:
             st.info("Aucune donnée à exporter. Créez d'abord des objets.")
             st.info("💡 **Format KML :** Compatible Google Earth et SDVFR classique")
