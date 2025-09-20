@@ -19,7 +19,9 @@ async def convert_kml_to_mbtiles(
     file: UploadFile = File(...),
     min_zoom: int = 0,
     max_zoom: int = 14,
-    name: str = "converted_tiles"
+    name: str = "converted_tiles",
+    preserve_properties: bool = True,
+    simplification: float = 0.0
 ):
     """Convertit un fichier KML en MBTiles via Tippecanoe"""
     
@@ -50,9 +52,21 @@ async def convert_kml_to_mbtiles(
             "-z", str(max_zoom),
             "-Z", str(min_zoom),
             "--force",
-            "--drop-densest-as-needed",
-            str(geojson_path)
+            "--no-feature-limit",
+            "--no-tile-size-limit"
         ]
+        
+        # Préserver la géométrie si demandé
+        if simplification == 0.0:
+            tippecanoe_cmd.extend(["--no-simplification", "--no-tiny-polygon-reduction"])
+        else:
+            tippecanoe_cmd.extend(["-S", str(simplification)])
+            
+        # Préserver toutes les propriétés
+        if preserve_properties:
+            tippecanoe_cmd.append("--preserve-input-order")
+            
+        tippecanoe_cmd.append(str(geojson_path))
         
         result = subprocess.run(tippecanoe_cmd, capture_output=True, text=True)
         
@@ -97,7 +111,7 @@ def convert_kml_to_geojson(kml_path: Path, geojson_path: Path):
         convert_kml_manual(kml_path, geojson_path)
 
 def convert_kml_manual(kml_path: Path, geojson_path: Path):
-    """Conversion KML vers GeoJSON manuelle basique"""
+    """Conversion KML vers GeoJSON avec préservation maximale des données"""
     import xml.etree.ElementTree as ET
     
     tree = ET.parse(kml_path)
@@ -110,20 +124,45 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
     
     # Extraire les placemarks
     for placemark in root.findall('.//kml:Placemark', ns):
-        name = placemark.find('kml:name', ns)
-        name_text = name.text if name is not None else "Unnamed"
+        properties = {}
         
+        # Extraire toutes les propriétés
+        name = placemark.find('kml:name', ns)
+        if name is not None:
+            properties['name'] = name.text
+            
+        description = placemark.find('kml:description', ns)
+        if description is not None:
+            properties['description'] = description.text
+            
+        # Extraire les données étendues
+        for extended_data in placemark.findall('.//kml:ExtendedData/kml:Data', ns):
+            data_name = extended_data.get('name')
+            value_elem = extended_data.find('kml:value', ns)
+            if data_name and value_elem is not None:
+                properties[data_name] = value_elem.text
+        
+        # Extraire les styles
+        style_url = placemark.find('kml:styleUrl', ns)
+        if style_url is not None:
+            properties['styleUrl'] = style_url.text
+            
         # Points
         point = placemark.find('.//kml:Point/kml:coordinates', ns)
         if point is not None:
-            coords = point.text.strip().split(',')
+            coords_text = point.text.strip()
+            coords = coords_text.split(',')
             if len(coords) >= 2:
+                coordinates = [float(coords[0]), float(coords[1])]
+                if len(coords) >= 3:
+                    coordinates.append(float(coords[2]))  # altitude
+                    
                 feature = {
                     "type": "Feature",
-                    "properties": {"name": name_text},
+                    "properties": properties,
                     "geometry": {
                         "type": "Point",
-                        "coordinates": [float(coords[0]), float(coords[1])]
+                        "coordinates": coordinates
                     }
                 }
                 features.append(feature)
@@ -136,12 +175,15 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
             for coord_pair in coords_text.split():
                 parts = coord_pair.split(',')
                 if len(parts) >= 2:
-                    coords.append([float(parts[0]), float(parts[1])])
+                    coord = [float(parts[0]), float(parts[1])]
+                    if len(parts) >= 3:
+                        coord.append(float(parts[2]))  # altitude
+                    coords.append(coord)
             
             if coords:
                 feature = {
                     "type": "Feature",
-                    "properties": {"name": name_text},
+                    "properties": properties,
                     "geometry": {
                         "type": "LineString",
                         "coordinates": coords
@@ -150,22 +192,44 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
                 features.append(feature)
         
         # Polygons
-        polygon = placemark.find('.//kml:Polygon/kml:outerBoundaryIs/kml:LinearRing/kml:coordinates', ns)
+        polygon = placemark.find('.//kml:Polygon', ns)
         if polygon is not None:
-            coords_text = polygon.text.strip()
-            coords = []
-            for coord_pair in coords_text.split():
-                parts = coord_pair.split(',')
-                if len(parts) >= 2:
-                    coords.append([float(parts[0]), float(parts[1])])
+            # Outer boundary
+            outer_coords = []
+            outer_ring = polygon.find('.//kml:outerBoundaryIs/kml:LinearRing/kml:coordinates', ns)
+            if outer_ring is not None:
+                coords_text = outer_ring.text.strip()
+                for coord_pair in coords_text.split():
+                    parts = coord_pair.split(',')
+                    if len(parts) >= 2:
+                        coord = [float(parts[0]), float(parts[1])]
+                        if len(parts) >= 3:
+                            coord.append(float(parts[2]))  # altitude
+                        outer_coords.append(coord)
             
-            if coords:
+            # Inner boundaries (holes)
+            inner_coords = []
+            for inner_ring in polygon.findall('.//kml:innerBoundaryIs/kml:LinearRing/kml:coordinates', ns):
+                hole_coords = []
+                coords_text = inner_ring.text.strip()
+                for coord_pair in coords_text.split():
+                    parts = coord_pair.split(',')
+                    if len(parts) >= 2:
+                        coord = [float(parts[0]), float(parts[1])]
+                        if len(parts) >= 3:
+                            coord.append(float(parts[2]))  # altitude
+                        hole_coords.append(coord)
+                if hole_coords:
+                    inner_coords.append(hole_coords)
+            
+            if outer_coords:
+                polygon_coords = [outer_coords] + inner_coords
                 feature = {
                     "type": "Feature",
-                    "properties": {"name": name_text},
+                    "properties": properties,
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [coords]
+                        "coordinates": polygon_coords
                     }
                 }
                 features.append(feature)
@@ -175,8 +239,8 @@ def convert_kml_manual(kml_path: Path, geojson_path: Path):
         "features": features
     }
     
-    with open(geojson_path, 'w') as f:
-        json.dump(geojson, f)
+    with open(geojson_path, 'w', encoding='utf-8') as f:
+        json.dump(geojson, f, ensure_ascii=False, indent=2)
 
 @app.get("/health")
 async def health_check():
