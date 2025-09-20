@@ -53,18 +53,29 @@ async def convert_kml_to_mbtiles(
             "-Z", str(min_zoom),
             "--force",
             "--no-feature-limit",
-            "--no-tile-size-limit"
+            "--no-tile-size-limit",
+            "--detect-shared-borders",  # Améliore le rendu des polygones
+            "--buffer=0"  # Pas de buffer pour préserver la géométrie exacte
         ]
         
         # Préserver la géométrie si demandé
         if simplification == 0.0:
-            tippecanoe_cmd.extend(["--no-simplification", "--no-tiny-polygon-reduction"])
+            tippecanoe_cmd.extend([
+                "--no-simplification", 
+                "--no-tiny-polygon-reduction",
+                "--no-polygon-splitting",  # Empêche la division des polygones
+                "--no-clipping"  # Pas de découpage
+            ])
         else:
             tippecanoe_cmd.extend(["-S", str(simplification)])
             
         # Préserver toutes les propriétés
         if preserve_properties:
-            tippecanoe_cmd.append("--preserve-input-order")
+            tippecanoe_cmd.extend([
+                "--preserve-input-order",
+                "--coalesce-densest-as-needed",  # Coalescence intelligente
+                "--extend-zooms-if-still-dropping"  # Étend les zooms si nécessaire
+            ])
             
         tippecanoe_cmd.append(str(geojson_path))
         
@@ -91,19 +102,21 @@ async def convert_kml_to_mbtiles(
         pass
 
 def convert_kml_to_geojson(kml_path: Path, geojson_path: Path):
-    """Convertit KML en GeoJSON simple"""
+    """Convertit KML en GeoJSON en préservant la structure des polygones"""
     try:
-        # Utiliser ogr2ogr si disponible
+        # Utiliser ogr2ogr avec options pour préserver les polygones
         cmd = [
             "ogr2ogr", 
-            "-f", "GeoJSON", 
+            "-f", "GeoJSON",
+            "-preserve_fid",
+            "-lco", "RFC7946=NO",  # Préserver la structure originale
             str(geojson_path), 
             str(kml_path)
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
-            # Fallback: conversion manuelle basique
+            # Fallback: conversion manuelle optimisée
             convert_kml_manual(kml_path, geojson_path)
             
     except FileNotFoundError:
