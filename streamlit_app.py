@@ -1143,7 +1143,7 @@ with tab2:
             if lat_dir == 'S': lat = -lat
             if lon_dir == 'W': lon = -lon
         
-        if st.button("➕ Ajouter Point"):
+        if st.button("➕ Ajouter Point", use_container_width=True):
             if point_name and not any(p['name'] == point_name for p in st.session_state.points_data):
                 try:
                     if coord_format == "Calamar":
@@ -1159,6 +1159,39 @@ with tab2:
                 st.error("Nom requis et unique")
     
     with col2:
+        st.subheader("Point par relèvement/distance")
+        
+        if st.session_state.points_data:
+            start_point_name = st.selectbox("Point de départ", 
+                                          [p['name'] for p in st.session_state.points_data])
+            new_point_name = st.text_input("Nom du nouveau point")
+            
+            col_dist, col_bear = st.columns(2)
+            with col_dist:
+                distance_val = st.number_input("Distance", value=1.0, min_value=0.1, key="points_distance")
+                distance_unit = st.selectbox("Unité", ["mètres", "nautiques"], key="points_distance_unit")
+            with col_bear:
+                bearing_deg = st.number_input("Gisement (degrés)", value=0.0, min_value=0.0, max_value=359.9, key="points_bearing")
+            
+            if st.button("🎯 Créer Point", use_container_width=True):
+                if new_point_name and start_point_name and not any(p['name'] == new_point_name for p in st.session_state.points_data):
+                    start_point = next(p for p in st.session_state.points_data if p['name'] == start_point_name)
+                    distance_km = distance_val * 1.852 if distance_unit == "nautiques" else distance_val / 1000
+                    
+                    new_lat, new_lon = create_point_from_bearing_distance(start_point, distance_km, bearing_deg)
+                    
+                    st.session_state.points_data.append({
+                        "type": "Point", "name": new_point_name, "lat": new_lat, "lon": new_lon,
+                        "description": f"Généré depuis {start_point_name}"
+                    })
+                    st.success(f"Point '{new_point_name}' créé!")
+                    st.rerun()
+                else:
+                    st.error("Nom requis et unique")
+        else:
+            st.info("Créez d'abord un point de référence")
+        
+        st.markdown("---")
         st.subheader("Import en masse")
         
         # Import via fichier Excel/CSV
@@ -1187,7 +1220,7 @@ with tab2:
                 # Colonne description optionnelle
                 col_desc = st.selectbox("Colonne description (optionnel)", [""] + list(df.columns), key="mass_col_desc")
                 
-                if st.button("📥 Importer tous les points"):
+                if st.button("📥 Importer tous les points", use_container_width=True):
                     imported_count = 0
                     errors = []
                     
@@ -1222,39 +1255,6 @@ with tab2:
                         
             except Exception as e:
                 st.error(f"Erreur lors de la lecture du fichier: {e}")
-        
-        st.markdown("---")
-        st.subheader("Point par relèvement/distance")
-        
-        if st.session_state.points_data:
-            start_point_name = st.selectbox("Point de départ", 
-                                          [p['name'] for p in st.session_state.points_data])
-            new_point_name = st.text_input("Nom du nouveau point")
-            
-            col_dist, col_bear = st.columns(2)
-            with col_dist:
-                distance_val = st.number_input("Distance", value=1.0, min_value=0.1, key="points_distance")
-                distance_unit = st.selectbox("Unité", ["mètres", "nautiques"], key="points_distance_unit")
-            with col_bear:
-                bearing_deg = st.number_input("Gisement (degrés)", value=0.0, min_value=0.0, max_value=359.9, key="points_bearing")
-            
-            if st.button("🎯 Créer Point"):
-                if new_point_name and start_point_name and not any(p['name'] == new_point_name for p in st.session_state.points_data):
-                    start_point = next(p for p in st.session_state.points_data if p['name'] == start_point_name)
-                    distance_km = distance_val * 1.852 if distance_unit == "nautiques" else distance_val / 1000
-                    
-                    new_lat, new_lon = create_point_from_bearing_distance(start_point, distance_km, bearing_deg)
-                    
-                    st.session_state.points_data.append({
-                        "type": "Point", "name": new_point_name, "lat": new_lat, "lon": new_lon,
-                        "description": f"Généré depuis {start_point_name}"
-                    })
-                    st.success(f"Point '{new_point_name}' créé!")
-                    st.rerun()
-                else:
-                    st.error("Nom requis et unique")
-        else:
-            st.info("Créez d'abord un point de référence")
     
     # Liste des points existants
     if st.session_state.points_data:
@@ -1331,7 +1331,7 @@ with tab3:
         col_validate, col_clear = st.columns(2)
         with col_validate:
             if len(st.session_state.current_line_points) >= 2 and line_name:
-                if st.button("✅ Valider la ligne"):
+                if st.button("✅ Valider la ligne", use_container_width=True):
                     if not any(l['name'] == line_name for l in st.session_state.lines_data):
                         line_coords = [(p["lon"], p["lat"]) for p in st.session_state.current_line_points]
                         st.session_state.lines_data.append({
@@ -1349,7 +1349,7 @@ with tab3:
                 st.info("Ajoutez au moins 2 points")
         
         with col_clear:
-            if st.button("🔄 Vider la ligne"):
+            if st.button("🔄 Vider la ligne", use_container_width=True):
                 st.session_state.current_line_points = []
                 st.rerun()
         
@@ -1569,7 +1569,7 @@ with tab4:
         
         fill_circle = st.checkbox("Remplir le cercle/arc")
         
-        if st.button("⭕ Générer Cercle/Arc"):
+        if st.button("⭕ Générer Cercle/Arc", use_container_width=True):
             if circle_name:
                 radius_km = radius_val * 1.852 if radius_unit == "nautiques" else radius_val / 1000
                 close_arc_param = close_arc if is_arc else True
@@ -1669,7 +1669,7 @@ with tab5:
                                 st.rerun()
             
             if len(st.session_state.current_polygon_points) >= 3 and polygon_name:
-                if st.button("✅ Valider le polygone"):
+                if st.button("✅ Valider le polygone", use_container_width=True):
                     polygon_coords = [(p["lon"], p["lat"]) for p in st.session_state.current_polygon_points]
                     polygon_coords.append(polygon_coords[0])  # Fermer le polygone
                     
@@ -1681,7 +1681,7 @@ with tab5:
                     st.success(f"Polygone '{polygon_name}' créé!")
                     st.rerun()
             
-            if st.button("🔄 Vider le polygone"):
+            if st.button("🔄 Vider le polygone", use_container_width=True):
                 st.session_state.current_polygon_points = []
                 st.rerun()
     
@@ -1875,7 +1875,7 @@ with tab5:
             fill_rect = st.checkbox("Remplir le rectangle")
             add_arrow = st.checkbox("Ajouter flèche d'orientation")
             
-            if st.button("🔷 Générer Rectangle"):
+            if st.button("🔷 Générer Rectangle", use_container_width=True):
                 if rect_name:
                     length_km = length_val * 1.852 if length_unit == "nautiques" else length_val / 1000
                     width_km = width_val * 1.852 if width_unit == "nautiques" else width_val / 1000
