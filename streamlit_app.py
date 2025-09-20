@@ -515,18 +515,23 @@ def generate_kml():
             circles_folder = kml.newfolder(name="Cercles et Arcs Fermés")
             for c_data in closed_shapes:
                 if 'points' in c_data:
+                    # Créer un polygone avec style explicite
                     poly = circles_folder.newpolygon(name=c_data['name'], outerboundaryis=c_data['points'])
                     if c_data.get('description'):
                         poly.description = c_data['description']
+                    
+                    # Style de ligne
                     poly.style.linestyle.width = c_data.get('width', 2)
                     poly.style.linestyle.color = color_map.get(c_data.get('color', 'rouge'), simplekml.Color.red)
                     
+                    # Style de remplissage
                     if c_data.get('fill', False):
                         base_color = color_map.get(c_data.get('color', 'rouge'), simplekml.Color.red)
                         poly.style.polystyle.color = simplekml.Color.changealphaint(150, base_color)
                         poly.style.polystyle.fill = 1
                     else:
                         poly.style.polystyle.fill = 0
+                        poly.style.polystyle.outline = 1  # Forcer l'affichage du contour
 
     if st.session_state.rectangles_data:
         rectangles_folder = kml.newfolder(name="Rectangles Générés")
