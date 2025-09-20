@@ -40,9 +40,10 @@ async def convert_geojson_to_mbtiles(
             content = await file.read()
             buffer.write(content)
         
-        # Générer MBTiles avec Tippecanoe
+        # Générer MBTiles avec Tippecanoe - paramètres compatibles SDVFR
         mbtiles_path = temp_dir / f"{name}.mbtiles"
         
+        # Paramètres d'origine qui ne faisaient pas planter SDVFR
         tippecanoe_cmd = [
             "tippecanoe",
             "-o", str(mbtiles_path),
