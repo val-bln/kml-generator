@@ -435,6 +435,53 @@ def kml_color_to_opacity(kml_color):
         return alpha / 255.0
     return 1.0
 
+@app.post("/convert-geojson-minimal")
+async def convert_geojson_minimal(
+    file: UploadFile = File(...),
+    name: str = "minimal_tiles"
+):
+    """Conversion GeoJSON vers MBTiles avec paramètres ultra-minimaux"""
+    
+    if not file.filename.endswith('.geojson'):
+        raise HTTPException(status_code=400, detail="Le fichier doit être un GeoJSON")
+    
+    temp_dir = Path(tempfile.mkdtemp())
+    temp_id = str(uuid.uuid4())
+    
+    try:
+        # Sauvegarder le fichier GeoJSON
+        geojson_path = temp_dir / f"{temp_id}.geojson"
+        with open(geojson_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # MBTiles avec paramètres ULTRA-minimaux
+        mbtiles_path = temp_dir / f"{name}.mbtiles"
+        
+        # Commande Tippecanoe la plus simple possible
+        tippecanoe_cmd = [
+            "tippecanoe",
+            "-o", str(mbtiles_path),
+            str(geojson_path)
+        ]
+        
+        result = subprocess.run(tippecanoe_cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Erreur Tippecanoe: {result.stderr}"
+            )
+        
+        return FileResponse(
+            path=mbtiles_path,
+            filename=f"{name}.mbtiles",
+            media_type="application/octet-stream"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/debug-kml")
 async def debug_kml_conversion(file: UploadFile = File(...)):
     """Debug de la conversion KML vers GeoJSON"""
