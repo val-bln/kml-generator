@@ -708,6 +708,29 @@ def generate_geojson():
         "features": features
     }
 
+def convert_geojson_minimal(geojson_data, name="minimal_tiles"):
+    """Convertit GeoJSON en MBTiles avec paramètres ultra-minimaux"""
+    try:
+        files = {'file': (f'{name}.geojson', json.dumps(geojson_data), 'application/geo+json')}
+        
+        response = requests.post(
+            f"{get_api_url()}/convert-geojson-minimal",
+            files=files,
+            data={'name': name},
+            timeout=API_TIMEOUT
+        )
+        
+        if response.status_code == 200:
+            return response.content
+        else:
+            error_msg = response.json().get('detail', 'Erreur inconnue') if response.headers.get('content-type') == 'application/json' else response.text
+            raise Exception(f"Erreur API: {error_msg}")
+            
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Erreur de connexion à l'API: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Erreur lors de la conversion: {str(e)}")
+
 def convert_geojson_to_mbtiles(geojson_data, min_zoom=0, max_zoom=14, name="converted_tiles", preserve_properties=True, simplification=0.0):
     """Convertit un GeoJSON en MBTiles via l'API FastAPI"""
     try:
@@ -2141,6 +2164,36 @@ with tab6:
             st.json(geojson_data)
         else:
             st.info("Créez d'abord des objets pour tester")
+    
+    # Test MBTiles ULTRA-minimal (paramètres par défaut Tippecanoe)
+    if st.button("🔥 Test MBTiles ULTRA-minimal"):
+        if not is_api_configured():
+            st.error("API non configurée")
+        else:
+            try:
+                # Point le plus simple possible
+                test_geojson = {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {},
+                            "geometry": {"type": "Point", "coordinates": [-1.12, 44.52]}
+                        }
+                    ]
+                }
+                
+                mbtiles_data = convert_geojson_minimal(test_geojson, name="ultra_minimal")
+                st.success(f"✅ MBTiles ULTRA-minimal généré! Taille: {len(mbtiles_data)} bytes")
+                st.download_button(
+                    label="💾 Télécharger ULTRA-minimal",
+                    data=mbtiles_data,
+                    file_name="ultra_minimal.mbtiles",
+                    mime="application/octet-stream"
+                )
+                st.info("💡 Ce MBTiles utilise UNIQUEMENT les paramètres par défaut de Tippecanoe")
+            except Exception as e:
+                st.error(f"❌ Échec: {e}")
     
     # Test de conversion simple
     if st.button("🧪 Test conversion MBTiles simple"):
