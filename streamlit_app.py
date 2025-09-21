@@ -19,56 +19,34 @@ import zlib
 import requests
 import uuid
 
-st.markdown(
-    """
-    <script>
-      // Forcer un hard reload à chaque ouverture de Safari
-      if (window.performance && window.performance.navigation.type === 1) {
-          console.log("Safari reload forcé");
-      } else {
-          console.log("Premier chargement - on force un reload pour éviter cache corrompu");
-          window.location.reload(true);
-      }
-    </script>
-    """,
-    unsafe_allow_html=True
-)
+import streamlit as st
 
-# Génère un identifiant unique à chaque chargement
-session_key = str(uuid.uuid4())
+import streamlit as st
 
-st.markdown(
-    f"""
-    <script>
-      // Forcer un rechargement complet avec un nouvel ID
-      if (!window.location.href.includes("{session_key}")) {{
-          window.location.href = window.location.href.split('?')[0] + "?session={session_key}";
-      }}
-    </script>
-    """,
-    unsafe_allow_html=True
-)
+# --- Correctifs spécifiques Safari iPadOS ---
+html_fix = """
+<head>
+  <!-- Empêcher Safari de garder un cache -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 
+  <!-- Forcer l'affichage mobile (comme iPhone) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+</head>
 
-# --- Correctifs pour Safari iPadOS ---
-# 1. Empêcher le cache qui bloque le rechargement
-# 2. Forcer le mode mobile comme sur iPhone
+<script>
+  // Safari iPadOS : forcer un rechargement complet à chaque ouverture
+  if (window.performance && window.performance.navigation.type !== 1) {
+      console.log("Premier chargement détecté -> Hard reload forcé");
+      window.location.reload(true);
+  } else {
+      console.log("Rechargement complet OK");
+  }
+</script>
+"""
 
-st.markdown(
-    """
-    <head>
-      <!-- Désactivation du cache Safari -->
-      <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-      <meta http-equiv="Pragma" content="no-cache">
-      <meta http-equiv="Expires" content="0">
-
-      <!-- Forcer l'affichage mobile -->
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    </head>
-    """,
-    unsafe_allow_html=True
-)
-
+st.markdown(html_fix, unsafe_allow_html=True)
 
 # Configuration API directe
 API_BASE_URL = "https://kml-api-docker.onrender.com"
