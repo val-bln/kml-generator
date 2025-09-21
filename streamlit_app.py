@@ -18,6 +18,26 @@ import struct
 import zlib
 import requests
 
+# --- Correctifs pour Safari iPadOS ---
+# 1. Empêcher le cache qui bloque le rechargement
+# 2. Forcer le mode mobile comme sur iPhone
+
+st.markdown(
+    """
+    <head>
+      <!-- Désactivation du cache Safari -->
+      <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+      <meta http-equiv="Pragma" content="no-cache">
+      <meta http-equiv="Expires" content="0">
+
+      <!-- Forcer l'affichage mobile -->
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    </head>
+    """,
+    unsafe_allow_html=True
+)
+
+
 # Configuration API directe
 API_BASE_URL = "https://kml-api-docker.onrender.com"
 API_TIMEOUT = 300
@@ -41,7 +61,8 @@ except ImportError:
 def detect_device():
     try:
         user_agent = st.context.headers.get("User-Agent", "")
-        if "iPad" in user_agent:
+        # Debug pour iPad
+        if "iPad" in user_agent or "Macintosh" in user_agent:
             return "ipad"
         elif "iPhone" in user_agent or "Mobile" in user_agent:
             return "mobile"
@@ -49,6 +70,14 @@ def detect_device():
             return "desktop"
     except:
         return "desktop"
+
+# Fonction de debug pour iPad
+def debug_device_info():
+    try:
+        user_agent = st.context.headers.get("User-Agent", "Inconnu")
+        return user_agent
+    except:
+        return "Erreur accès headers"
 
 # Configuration adaptative selon l'appareil
 device_type = detect_device()
@@ -1148,14 +1177,29 @@ def create_map():
 # Interface principale adaptative
 device_type = detect_device()
 
+# Debug pour iPad
 if device_type == "ipad":
     st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator - iPad</h1>", unsafe_allow_html=True)
-    st.info("📱 Interface optimisée pour iPad")
+    st.success("📱 Interface optimisée pour iPad détectée")
+    with st.expander("Debug iPad"):
+        st.code(f"User-Agent: {debug_device_info()}")
 elif device_type == "mobile":
     st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator</h1>", unsafe_allow_html=True)
     st.info("📱 Interface mobile")
 else:
     st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
+    # Bouton de test pour forcer le mode iPad
+    if st.button("📱 Forcer mode iPad (test)"):
+        st.session_state.force_ipad = True
+        st.rerun()
+
+# Mode forcé iPad pour test
+if st.session_state.get('force_ipad', False):
+    device_type = "ipad"
+    st.warning("📱 Mode iPad forcé activé")
+    if st.button("Retour mode normal"):
+        st.session_state.force_ipad = False
+        st.rerun()
 
 # Navigation par onglets
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", "📍 Points", "📏 Lignes", "⭕ Cercles/Arcs", "🔷 Polygones", "🔧 Divers", "🗺️ Visualisation"])
