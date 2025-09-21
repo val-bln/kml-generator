@@ -19,6 +19,21 @@ import zlib
 import requests
 import uuid
 
+st.markdown(
+    """
+    <script>
+      // Forcer un hard reload à chaque ouverture de Safari
+      if (window.performance && window.performance.navigation.type === 1) {
+          console.log("Safari reload forcé");
+      } else {
+          console.log("Premier chargement - on force un reload pour éviter cache corrompu");
+          window.location.reload(true);
+      }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 # Génère un identifiant unique à chaque chargement
 session_key = str(uuid.uuid4())
 
