@@ -17,6 +17,23 @@ import sqlite3
 import struct
 import zlib
 import requests
+import uuid
+
+# Génère un identifiant unique à chaque chargement
+session_key = str(uuid.uuid4())
+
+st.markdown(
+    f"""
+    <script>
+      // Forcer un rechargement complet avec un nouvel ID
+      if (!window.location.href.includes("{session_key}")) {{
+          window.location.href = window.location.href.split('?')[0] + "?session={session_key}";
+      }}
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # --- Correctifs pour Safari iPadOS ---
 # 1. Empêcher le cache qui bloque le rechargement
