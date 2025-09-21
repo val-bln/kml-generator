@@ -37,11 +37,17 @@ try:
 except ImportError:
     RASTERIO_AVAILABLE = False
 
-# Configuration minimale pour iOS 26
+# Configuration optimisée pour iOS (iPad Mini compatible)
 st.set_page_config(
     page_title="Générateur KML pour SDVFR",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed",  # Sidebar fermée par défaut
+    menu_items=None  # Supprimer le menu Streamlit
 )
+
+# Optimisations pour appareils moins puissants
+if 'mobile_optimized' not in st.session_state:
+    st.session_state.mobile_optimized = True
 
 # Configuration API chargée depuis config.py
 
@@ -843,29 +849,44 @@ def process_tiff_overlay(tiff_path):
         return None
 
 def create_map():
-    # Calculer le centre de la carte
+    # Calculer le centre de la carte (optimisé)
     all_lats, all_lons = [], []
     
+    # Limiter le nombre de points pour les performances sur iPad Mini
+    max_points = 1000 if st.session_state.get('mobile_optimized', False) else float('inf')
+    point_count = 0
+    
     for point in st.session_state.points_data:
+        if point_count >= max_points:
+            break
         all_lats.append(point['lat'])
         all_lons.append(point['lon'])
+        point_count += 1
     
     for line in st.session_state.lines_data:
-        for lon, lat in line['points']:
+        if point_count >= max_points:
+            break
+        for lon, lat in line['points'][:10]:  # Limiter à 10 points par ligne
             all_lats.append(lat)
             all_lons.append(lon)
+            point_count += 1
     
     for circle in st.session_state.circles_data:
-        if 'points' in circle:
-            for lon, lat in circle['points']:
-                all_lats.append(lat)
-                all_lons.append(lon)
+        if point_count >= max_points or 'points' not in circle:
+            break
+        # Prendre seulement quelques points du cercle pour le centrage
+        for lon, lat in circle['points'][::5]:  # Un point sur 5
+            all_lats.append(lat)
+            all_lons.append(lon)
+            point_count += 1
     
     for rect in st.session_state.rectangles_data:
-        if 'points' in rect:
-            for lon, lat in rect['points']:
-                all_lats.append(lat)
-                all_lons.append(lon)
+        if point_count >= max_points or 'points' not in rect:
+            break
+        for lon, lat in rect['points'][:4]:  # Seulement les coins
+            all_lats.append(lat)
+            all_lons.append(lon)
+            point_count += 1
     
     if all_lats and all_lons:
         center_lat = sum(all_lats) / len(all_lats)
@@ -873,21 +894,19 @@ def create_map():
     else:
         center_lat, center_lon = 44.52, -1.12
     
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=12)
+    # Carte avec paramètres optimisés pour mobile
+    m = folium.Map(
+        location=[center_lat, center_lon], 
+        zoom_start=11,  # Zoom légèrement réduit
+        prefer_canvas=True,  # Utiliser Canvas au lieu de SVG (plus rapide)
+        max_zoom=16  # Limiter le zoom max
+    )
     
-    # Ajouter les fonds de carte satellite
+    # Fonds de carte optimisés (réduits pour iPad Mini)
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri',
-        name='Satellite (Esri)',
-        overlay=False,
-        control=True
-    ).add_to(m)
-    
-    folium.TileLayer(
-        tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-        attr='Google',
-        name='Satellite (Google)',
+        name='Satellite',
         overlay=False,
         control=True
     ).add_to(m)
@@ -895,27 +914,28 @@ def create_map():
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
         attr='Esri',
-        name='Plan (Esri)',
+        name='Plan',
         overlay=False,
         control=True
     ).add_to(m)
     
-    folium.TileLayer(
-        tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-        attr='Google',
-        name='Hybride (Google)',
-        overlay=False,
-        control=True
-    ).add_to(m)
-    
-    # Ajouter OpenTopoMap pour le relief
-    folium.TileLayer(
-        tiles='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-        attr='OpenTopoMap',
-        name='Relief (OpenTopo)',
-        overlay=False,
-        control=True
-    ).add_to(m)
+    # Couches supplémentaires seulement si pas en mode mobile optimisé
+    if not st.session_state.get('mobile_optimized', False):
+        folium.TileLayer(
+            tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+            attr='Google',
+            name='Satellite (Google)',
+            overlay=False,
+            control=True
+        ).add_to(m)
+        
+        folium.TileLayer(
+            tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+            attr='Google',
+            name='Hybride (Google)',
+            overlay=False,
+            control=True
+        ).add_to(m)
     
 
     
@@ -1069,6 +1089,10 @@ def create_map():
 # Interface principale
 st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
 
+# Message d'optimisation pour iPad Mini
+if st.session_state.get('mobile_optimized', False):
+    st.info("📱 Interface optimisée pour iPad Mini - Chargement accéléré")
+
 # Navigation par onglets
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", "📍 Points", "📏 Lignes", "⭕ Cercles/Arcs", "🔷 Polygones", "🔧 Divers", "🗺️ Visualisation"])
 
@@ -1154,22 +1178,8 @@ with tab1:
                             # Générer directement le GeoJSON
                             geojson_data = generate_geojson()
                             
-                            # Paramètres de conversion
-                            min_zoom = st.session_state.get('mbtiles_min_zoom', 0)
-                            max_zoom = st.session_state.get('mbtiles_max_zoom', 14)
-                            preserve_props = st.session_state.get('preserve_props', True)
-                            simplif_level = st.session_state.get('simplification_select', (0.0, "Aucune (fidélité maximale)"))
-                            if isinstance(simplif_level, tuple):
-                                simplif_level = simplif_level[0]
-                            
-                            mbtiles_data = convert_geojson_to_mbtiles(
-                                geojson_data, 
-                                min_zoom=min_zoom, 
-                                max_zoom=max_zoom, 
-                                name=clean_filename,
-                                preserve_properties=preserve_props,
-                                simplification=simplif_level
-                            )
+                            # Utiliser les paramètres minimaux qui fonctionnent avec SDVFR Next
+                            mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
                             
                             st.download_button(
                                 label="💾 Télécharger MBTiles",
@@ -1178,6 +1188,7 @@ with tab1:
                                 mime="application/octet-stream"
                             )
                             st.success("✅ MBTiles généré avec succès!")
+                            st.info("💡 Utilise les paramètres Tippecanoe compatibles SDVFR Next")
                             
                         except Exception as e:
                             st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
@@ -2136,135 +2147,7 @@ with tab5:
 
 # ONGLET DIVERS
 with tab6:
-    st.subheader("🔧 Outils de diagnostic")
-    
-    # Test de l'API
-    if st.button("🔍 Tester l'API MBTiles"):
-        if not is_api_configured():
-            st.error("API non configurée")
-        else:
-            try:
-                response = requests.get(f"{get_api_url()}/health", timeout=10)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get('tippecanoe_available'):
-                        st.success("✅ API opérationnelle avec Tippecanoe")
-                    else:
-                        st.warning("⚠️ API opérationnelle mais Tippecanoe indisponible")
-                else:
-                    st.error(f"❌ API inaccessible (status: {response.status_code})")
-            except Exception as e:
-                st.error(f"❌ Erreur de connexion API: {e}")
-    
-    # Test GeoJSON direct
-    if st.button("🧪 Test GeoJSON direct"):
-        if st.session_state.points_data or st.session_state.lines_data or st.session_state.circles_data or st.session_state.rectangles_data:
-            geojson_data = generate_geojson()
-            st.success(f"✅ GeoJSON généré: {len(geojson_data['features'])} objets")
-            st.json(geojson_data)
-        else:
-            st.info("Créez d'abord des objets pour tester")
-    
-    # Test MBTiles ULTRA-minimal (paramètres par défaut Tippecanoe)
-    if st.button("🔥 Test MBTiles ULTRA-minimal"):
-        if not is_api_configured():
-            st.error("API non configurée")
-        else:
-            try:
-                # Point le plus simple possible
-                test_geojson = {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {},
-                            "geometry": {"type": "Point", "coordinates": [-1.12, 44.52]}
-                        }
-                    ]
-                }
-                
-                mbtiles_data = convert_geojson_minimal(test_geojson, name="ultra_minimal")
-                st.success(f"✅ MBTiles ULTRA-minimal généré! Taille: {len(mbtiles_data)} bytes")
-                st.download_button(
-                    label="💾 Télécharger ULTRA-minimal",
-                    data=mbtiles_data,
-                    file_name="ultra_minimal.mbtiles",
-                    mime="application/octet-stream"
-                )
-                st.info("💡 Ce MBTiles utilise UNIQUEMENT les paramètres par défaut de Tippecanoe")
-            except Exception as e:
-                st.error(f"❌ Échec: {e}")
-    
-    # Test de conversion simple
-    if st.button("🧪 Test conversion MBTiles simple"):
-        if not is_api_configured():
-            st.error("API non configurée")
-        else:
-            # Créer un KML de test simple
-            test_kml = '''<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <Placemark>
-      <name>Test Point</name>
-      <Point>
-        <coordinates>-1.12,44.52,0</coordinates>
-      </Point>
-    </Placemark>
-    <Placemark>
-      <name>Test Line</name>
-      <LineString>
-        <coordinates>-1.12,44.52,0 -1.11,44.53,0</coordinates>
-      </LineString>
-    </Placemark>
-    <Placemark>
-      <name>Test Polygon</name>
-      <Polygon>
-        <outerBoundaryIs>
-          <LinearRing>
-            <coordinates>-1.12,44.52,0 -1.11,44.52,0 -1.11,44.53,0 -1.12,44.53,0 -1.12,44.52,0</coordinates>
-          </LinearRing>
-        </outerBoundaryIs>
-      </Polygon>
-    </Placemark>
-  </Document>
-</kml>'''
-            
-            try:
-                # Test avec GeoJSON direct
-                test_geojson = {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "properties": {"name": "Test Point"},
-                            "geometry": {"type": "Point", "coordinates": [-1.12, 44.52]}
-                        },
-                        {
-                            "type": "Feature", 
-                            "properties": {"name": "Test Line"},
-                            "geometry": {"type": "LineString", "coordinates": [[-1.12, 44.52], [-1.11, 44.53]]}
-                        },
-                        {
-                            "type": "Feature",
-                            "properties": {"name": "Test Polygon"},
-                            "geometry": {"type": "Polygon", "coordinates": [[[-1.12, 44.52], [-1.11, 44.52], [-1.11, 44.53], [-1.12, 44.53], [-1.12, 44.52]]]}
-                        }
-                    ]
-                }
-                
-                mbtiles_data = convert_geojson_to_mbtiles(test_geojson, name="test_simple")
-                st.success(f"✅ Conversion MBTiles réussie! Taille: {len(mbtiles_data)} bytes")
-                st.download_button(
-                    label="💾 Télécharger test MBTiles",
-                    data=mbtiles_data,
-                    file_name="test_simple.mbtiles",
-                    mime="application/octet-stream"
-                )
-            except Exception as e:
-                st.error(f"❌ Échec conversion: {e}")
-    
-    st.markdown("---")
-    st.subheader("Calculer distance et gisement")
+    st.subheader("📊 Calculer distance et gisement")
     
     if len(st.session_state.points_data) >= 2:
         col1, col2 = st.columns(2)
@@ -2308,18 +2191,26 @@ with tab7:
             else:
                 st.info("Aucun fichier reference.kml trouvé")
     
-    # Charger les données de référence au premier lancement
-    if not any(st.session_state.reference_data.values()):
-        load_reference_kml()
+    # Charger les données de référence uniquement si demandé (optimisation mobile)
+    if show_ref and not any(st.session_state.reference_data.values()):
+        with st.spinner("📱 Chargement optimisé pour mobile..."):
+            load_reference_kml()
     
     # Message informatif
     st.info("💡 **Astuce :** Cliquez directement sur la carte pour créer un point à l'endroit souhaité !")
     
-    # Créer et afficher la carte
+    # Créer et afficher la carte avec optimisations mobiles
     m = create_map()
     
-    # Afficher la carte
-    map_data = st_folium(m, use_container_width=True, height=500, returned_objects=["last_clicked"])
+    # Afficher la carte avec paramètres optimisés pour mobile
+    map_data = st_folium(
+        m, 
+        use_container_width=True, 
+        height=400,  # Hauteur réduite pour iPad Mini
+        returned_objects=["last_clicked"],
+        debounce_time=300,  # Réduire la fréquence des updates
+        key="main_map"  # Clé stable pour éviter les re-renders
+    )
     
     # Gestion du clic sur la carte
     if map_data['last_clicked'] is not None:
