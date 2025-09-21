@@ -2208,7 +2208,6 @@ with tab7:
         use_container_width=True, 
         height=400,  # Hauteur réduite pour iPad Mini
         returned_objects=["last_clicked"],
-        debounce_time=300,  # Réduire la fréquence des updates
         key="main_map"  # Clé stable pour éviter les re-renders
     )
     
