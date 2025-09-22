@@ -24,7 +24,7 @@ import tempfile
 # Config de la page
 st.set_page_config(page_title="KML Generator", page_icon="🌍")
 
-# --- Patch Safari iPadOS : désactiver WebSocket et afficher debug dans la page ---
+# --- Patch Safari iPadOS : désactiver WebSocket et afficher debug ---
 st.markdown(
     """
     <script>
@@ -36,7 +36,7 @@ st.markdown(
         if (isIOS) {
             document.body.insertAdjacentHTML(
                 "afterbegin",
-                "<div style='background:#ffdddd;color:#a00;padding:10px;font-weight:bold;'>✅ Safari iOS/iPad détecté → WebSocket désactivé (fallback HTTP)</div>"
+                "<div style='background:#ffdddd;color:#a00;padding:10px;font-weight:bold;'>✅ iOS/iPad détecté → WebSocket désactivé (fallback HTTP)</div>"
             );
             window.WebSocket = undefined;  // Force Streamlit à basculer en HTTP polling
         } else {
@@ -70,57 +70,6 @@ try:
     RASTERIO_AVAILABLE = True
 except ImportError:
     RASTERIO_AVAILABLE = False
-
-# Détection automatique du type d'appareil
-def detect_device():
-    try:
-        user_agent = st.context.headers.get("User-Agent", "")
-        # Debug pour iPad
-        if "iPad" in user_agent or "Macintosh" in user_agent:
-            return "ipad"
-        elif "iPhone" in user_agent or "Mobile" in user_agent:
-            return "mobile"
-        else:
-            return "desktop"
-    except:
-        return "desktop"
-
-# Fonction de debug pour iPad
-def debug_device_info():
-    try:
-        user_agent = st.context.headers.get("User-Agent", "Inconnu")
-        return user_agent
-    except:
-        return "Erreur accès headers"
-
-# Configuration adaptative selon l'appareil
-device_type = detect_device()
-
-if device_type == "ipad":
-    st.set_page_config(
-        page_title="KML Generator - iPad",
-        layout="centered",
-        initial_sidebar_state="collapsed",
-        menu_items=None
-    )
-elif device_type == "mobile":
-    st.set_page_config(
-        page_title="KML Generator - Mobile",
-        layout="centered",
-        initial_sidebar_state="collapsed",
-        menu_items=None
-    )
-else:
-    st.set_page_config(
-        page_title="Générateur KML pour SDVFR",
-        layout="wide",
-        initial_sidebar_state="collapsed",
-        menu_items=None
-    )
-
-# Optimisations selon l'appareil
-if 'mobile_optimized' not in st.session_state:
-    st.session_state.mobile_optimized = device_type in ["ipad", "mobile"]
 
 # Initialisation des données de session
 if 'points_data' not in st.session_state:
@@ -2526,6 +2475,7 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
 
 
 
