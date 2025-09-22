@@ -25,18 +25,19 @@ import tempfile
 st.set_page_config(page_title="KML Generator", page_icon="🌍")
 
 # --- Patch Safari iPadOS : désactiver WebSocket pour forcer HTTP polling ---
-st.set_page_config(page_title="KML → MBTiles Generator", page_icon="🌍")
-
 st.markdown(
     """
     <script>
     (function() {
-        // Détection iPad ou Safari
-        const ua = navigator.userAgent;
-        if (ua.includes("iPad") || (ua.includes("Macintosh") && "ontouchend" in document)) {
-            console.log("Safari iPad détecté → désactivation WebSocket");
-            // Neutralise WebSocket → Streamlit bascule en fallback HTTP
-            window.WebSocket = undefined;
+        const ua = navigator.userAgent || navigator.vendor || window.opera;
+        const isIOS = /iPad|iPhone|iPod/.test(ua) || 
+                      (ua.includes("Macintosh") && "ontouchend" in document);
+
+        if (isIOS) {
+            console.log("✅ Safari iOS/iPad détecté → désactivation WebSocket");
+            window.WebSocket = undefined;  // Force Streamlit à basculer en HTTP polling
+        } else {
+            console.log("Navigateur standard → WebSocket actif");
         }
     })();
     </script>
@@ -44,23 +45,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- Patch Safari iPad : forcer le fallback HTTP au lieu de WebSocket ---
-st.markdown(
-    """
-    <script>
-    // Intercepte WebSocket et le désactive pour Safari iPad
-    (function() {
-        if (navigator.userAgent.includes("iPad") || navigator.userAgent.includes("Macintosh")) {
-            console.log("Safari iPad détecté → WebSocket désactivé, fallback HTTP activé");
-            window.WebSocket = function() {
-                console.warn("WebSocket désactivé - utilisation du polling HTTP à la place");
-            };
-        }
-    })();
-    </script>
-    """,
-    unsafe_allow_html=True
-)
 
 
 # Configuration API directe
@@ -2537,6 +2521,7 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
 
 
 
