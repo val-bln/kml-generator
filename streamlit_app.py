@@ -20,15 +20,19 @@ import requests
 import uuid
 
 
-# Désactiver le service worker sur iOS
+import streamlit as st
+
+# Config de la page
 st.set_page_config(page_title="KML Generator", page_icon="🌍")
+
+# Patch pour Safari iPad : désactive les Service Workers
 st.markdown(
     """
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) {
-                registration.unregister()
+                registration.unregister();
             }
         });
     }
@@ -36,7 +40,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 
 # --- Correctifs spécifiques Safari iPadOS ---
 html_fix = """
@@ -62,6 +65,7 @@ html_fix = """
 """
 
 st.markdown(html_fix, unsafe_allow_html=True)
+
 
 # Configuration API directe
 API_BASE_URL = "https://kml-api-docker.onrender.com"
@@ -132,10 +136,6 @@ else:
 # Optimisations selon l'appareil
 if 'mobile_optimized' not in st.session_state:
     st.session_state.mobile_optimized = device_type in ["ipad", "mobile"]
-
-# Configuration API chargée depuis config.py
-
-# Version ultra-minimaliste pour iOS 26
 
 # Initialisation des données de session
 if 'points_data' not in st.session_state:
@@ -2541,3 +2541,4 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
