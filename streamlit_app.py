@@ -1061,7 +1061,7 @@ def create_map():
     return m
 
 # Interface principale adaptative
-st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>Générateur KML</h1>", unsafe_allow_html=True)
 
 # Navigation par onglets
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", "📍 Points", "📏 Lignes", "⭕ Cercles/Arcs", "🔷 Polygones", "🔧 Divers", "🗺️ Visualisation"])
