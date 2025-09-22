@@ -19,34 +19,8 @@ import zlib
 import requests
 import uuid
 
-import streamlit as st
-
-import streamlit as st
-
-# --- Correctifs spécifiques Safari iPadOS ---
-html_fix = """
-<head>
-  <!-- Empêcher Safari de garder un cache -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-
-  <!-- Forcer l'affichage mobile (comme iPhone) -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-</head>
-
-<script>
-  // Safari iPadOS : forcer un rechargement complet à chaque ouverture
-  if (window.performance && window.performance.navigation.type !== 1) {
-      console.log("Premier chargement détecté -> Hard reload forcé");
-      window.location.reload(true);
-  } else {
-      console.log("Rechargement complet OK");
-  }
-</script>
-"""
-
-st.markdown(html_fix, unsafe_allow_html=True)
+# Config de la page
+st.set_page_config(page_title="KML Generator", page_icon="🌍")
 
 # Configuration API directe
 API_BASE_URL = "https://kml-api-docker.onrender.com"
@@ -66,61 +40,6 @@ try:
     RASTERIO_AVAILABLE = True
 except ImportError:
     RASTERIO_AVAILABLE = False
-
-# Détection automatique du type d'appareil
-def detect_device():
-    try:
-        user_agent = st.context.headers.get("User-Agent", "")
-        # Debug pour iPad
-        if "iPad" in user_agent or "Macintosh" in user_agent:
-            return "ipad"
-        elif "iPhone" in user_agent or "Mobile" in user_agent:
-            return "mobile"
-        else:
-            return "desktop"
-    except:
-        return "desktop"
-
-# Fonction de debug pour iPad
-def debug_device_info():
-    try:
-        user_agent = st.context.headers.get("User-Agent", "Inconnu")
-        return user_agent
-    except:
-        return "Erreur accès headers"
-
-# Configuration adaptative selon l'appareil
-device_type = detect_device()
-
-if device_type == "ipad":
-    st.set_page_config(
-        page_title="KML Generator - iPad",
-        layout="centered",
-        initial_sidebar_state="collapsed",
-        menu_items=None
-    )
-elif device_type == "mobile":
-    st.set_page_config(
-        page_title="KML Generator - Mobile",
-        layout="centered",
-        initial_sidebar_state="collapsed",
-        menu_items=None
-    )
-else:
-    st.set_page_config(
-        page_title="Générateur KML pour SDVFR",
-        layout="wide",
-        initial_sidebar_state="collapsed",
-        menu_items=None
-    )
-
-# Optimisations selon l'appareil
-if 'mobile_optimized' not in st.session_state:
-    st.session_state.mobile_optimized = device_type in ["ipad", "mobile"]
-
-# Configuration API chargée depuis config.py
-
-# Version ultra-minimaliste pour iOS 26
 
 # Initialisation des données de session
 if 'points_data' not in st.session_state:
@@ -883,7 +802,7 @@ def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted
 
 
 def process_tiff_overlay(tiff_path):
-    """Traite un fichier TIFF géoréférencé pour l'overlay"""
+    """Traite un fichier TIFF géoréferencé pour l'overlay"""
     if not RASTERIO_AVAILABLE:
         return None
     
@@ -917,55 +836,31 @@ def process_tiff_overlay(tiff_path):
         st.error(f"Erreur TIFF: {e}")
         return None
 
+
 def create_map():
     # Calculer le centre de la carte (optimisé)
     all_lats, all_lons = [], []
-    
-    # Limiter le nombre de points selon l'appareil
-    device_type = detect_device()
-    if device_type == "ipad":
-        max_points = 500  # Limite pour iPad
-        map_height = 300
-    elif device_type == "mobile":
-        max_points = 200  # Limite pour mobile
-        map_height = 250
-    else:
-        max_points = float('inf')  # Pas de limite pour desktop
-        map_height = 400
-    
-    point_count = 0
-    
+       
     for point in st.session_state.points_data:
-        if point_count >= max_points:
-            break
         all_lats.append(point['lat'])
         all_lons.append(point['lon'])
-        point_count += 1
     
     for line in st.session_state.lines_data:
-        if point_count >= max_points:
-            break
-        for lon, lat in line['points'][:10]:  # Limiter à 10 points par ligne
+        for lon, lat in line['points']:
             all_lats.append(lat)
             all_lons.append(lon)
-            point_count += 1
     
     for circle in st.session_state.circles_data:
-        if point_count >= max_points or 'points' not in circle:
-            break
-        # Prendre seulement quelques points du cercle pour le centrage
-        for lon, lat in circle['points'][::5]:  # Un point sur 5
-            all_lats.append(lat)
-            all_lons.append(lon)
-            point_count += 1
+        if 'points' in circle:
+            for lon, lat in circle['points']:
+                all_lats.append(lat)
+                all_lons.append(lon)
     
     for rect in st.session_state.rectangles_data:
-        if point_count >= max_points or 'points' not in rect:
-            break
-        for lon, lat in rect['points'][:4]:  # Seulement les coins
-            all_lats.append(lat)
-            all_lons.append(lon)
-            point_count += 1
+        if 'points' in rect:
+            for lon, lat in rect['points']:
+                all_lats.append(lat)
+                all_lons.append(lon)
     
     if all_lats and all_lons:
         center_lat = sum(all_lats) / len(all_lats)
@@ -973,23 +868,15 @@ def create_map():
     else:
         center_lat, center_lon = 44.52, -1.12
     
-    # Carte avec paramètres adaptés selon l'appareil
-    if device_type in ["ipad", "mobile"]:
-        m = folium.Map(
-            location=[center_lat, center_lon], 
-            zoom_start=10,  # Zoom réduit pour mobile
-            prefer_canvas=True,  # Canvas plus rapide
-            max_zoom=15  # Zoom limité
-        )
-    else:
-        m = folium.Map(
-            location=[center_lat, center_lon], 
-            zoom_start=11,
-            prefer_canvas=False,  # SVG pour desktop
-            max_zoom=18
-        )
+  # Créer la carte
+    m = folium.Map(
+        location=[center_lat, center_lon], 
+        zoom_start=11,
+        prefer_canvas=False,
+        max_zoom=18
+    )
     
-    # Fonds de carte optimisés (réduits pour iPad Mini)
+    # Fonds de carte
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attr='Esri',
@@ -1006,34 +893,23 @@ def create_map():
         control=True
     ).add_to(m)
     
-    # Couches supplémentaires selon l'appareil
-    if device_type == "desktop":
-        # Toutes les couches pour desktop
-        folium.TileLayer(
-            tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-            attr='Google',
-            name='Satellite (Google)',
-            overlay=False,
-            control=True
-        ).add_to(m)
+    
+    
+    folium.TileLayer(
+        tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        attr='Google',
+        name='Satellite (Google)',
+        overlay=False,
+        control=True
+    ).add_to(m)
         
-        folium.TileLayer(
-            tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-            attr='Google',
-            name='Hybride (Google)',
-            overlay=False,
-            control=True
-        ).add_to(m)
-    elif device_type == "ipad":
-        # Une couche supplémentaire pour iPad
-        folium.TileLayer(
-            tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-            attr='Google',
-            name='Satellite (Google)',
-            overlay=False,
-            control=True
-        ).add_to(m)
-    # Pas de couches supplémentaires pour mobile
+    folium.TileLayer(
+        tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+        attr='Google',
+        name='Hybride (Google)',
+        overlay=False,
+        control=True
+    ).add_to(m)
     
 
     
@@ -1185,31 +1061,7 @@ def create_map():
     return m
 
 # Interface principale adaptative
-device_type = detect_device()
-
-# Debug pour iPad
-if device_type == "ipad":
-    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator - iPad</h1>", unsafe_allow_html=True)
-    st.success("📱 Interface optimisée pour iPad détectée")
-    with st.expander("Debug iPad"):
-        st.code(f"User-Agent: {debug_device_info()}")
-elif device_type == "mobile":
-    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator</h1>", unsafe_allow_html=True)
-    st.info("📱 Interface mobile")
-else:
-    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
-    # Bouton de test pour forcer le mode iPad
-    if st.button("📱 Forcer mode iPad (test)"):
-        st.session_state.force_ipad = True
-        st.rerun()
-
-# Mode forcé iPad pour test
-if st.session_state.get('force_ipad', False):
-    device_type = "ipad"
-    st.warning("📱 Mode iPad forcé activé")
-    if st.button("Retour mode normal"):
-        st.session_state.force_ipad = False
-        st.rerun()
+st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
 
 # Navigation par onglets
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", "📍 Points", "📏 Lignes", "⭕ Cercles/Arcs", "🔷 Polygones", "🔧 Divers", "🗺️ Visualisation"])
@@ -2289,10 +2141,7 @@ with tab6:
 
 # ONGLET VISUALISATION
 with tab7:
-    
-
-    
-
+       
     # Contrôle des données de référence
     col_ref1, col_ref2 = st.columns([3, 1])
     with col_ref1:
@@ -2321,13 +2170,7 @@ with tab7:
     m = create_map()
     
     # Afficher la carte avec paramètres adaptés
-    device_type = detect_device()
-    if device_type == "ipad":
-        map_height = 300
-    elif device_type == "mobile":
-        map_height = 250
-    else:
-        map_height = 500
+    map_height = 500
     
     map_data = st_folium(
         m, 
@@ -2524,4 +2367,5 @@ with tab7:
 
 # Footer
 st.markdown("---")
+
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
