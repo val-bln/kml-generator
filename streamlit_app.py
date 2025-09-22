@@ -22,46 +22,23 @@ import uuid
 # Config de la page
 st.set_page_config(page_title="KML Generator", page_icon="🌍")
 
-# Patch pour Safari iPad : désactive les Service Workers
+# --- Patch Safari iPad : forcer le fallback HTTP au lieu de WebSocket ---
 st.markdown(
     """
     <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) {
-                registration.unregister();
-            }
-        });
-    }
+    // Intercepte WebSocket et le désactive pour Safari iPad
+    (function() {
+        if (navigator.userAgent.includes("iPad") || navigator.userAgent.includes("Macintosh")) {
+            console.log("Safari iPad détecté → WebSocket désactivé, fallback HTTP activé");
+            window.WebSocket = function() {
+                console.warn("WebSocket désactivé - utilisation du polling HTTP à la place");
+            };
+        }
+    })();
     </script>
     """,
     unsafe_allow_html=True
 )
-
-# --- Correctifs spécifiques Safari iPadOS ---
-html_fix = """
-<head>
-  <!-- Empêcher Safari de garder un cache -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-
-  <!-- Forcer l'affichage mobile (comme iPhone) -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-</head>
-
-<script>
-  // Safari iPadOS : forcer un rechargement complet à chaque ouverture
-  if (window.performance && window.performance.navigation.type !== 1) {
-      console.log("Premier chargement détecté -> Hard reload forcé");
-      window.location.reload(true);
-  } else {
-      console.log("Rechargement complet OK");
-  }
-</script>
-"""
-
-st.markdown(html_fix, unsafe_allow_html=True)
 
 
 # Configuration API directe
@@ -2538,5 +2515,6 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
 
 
