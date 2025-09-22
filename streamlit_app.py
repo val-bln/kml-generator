@@ -1133,36 +1133,8 @@ def create_map():
     
     return m
 
-# Interface principale adaptative
-device_type = detect_device()
-
-# Debug pour iPad
-if device_type == "ipad":
-    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator - iPad</h1>", unsafe_allow_html=True)
-    st.success("📱 Interface optimisée pour iPad détectée")
-    with st.expander("Debug iPad"):
-        st.code(f"User-Agent: {debug_device_info()}")
-elif device_type == "mobile":
-    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator</h1>", unsafe_allow_html=True)
-    st.info("📱 Interface mobile")
-else:
-    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
-    # Bouton de test pour forcer le mode iPad
-    if st.button("📱 Forcer mode iPad (test)"):
-        st.session_state.force_ipad = True
-        st.rerun()
-
-# Mode forcé iPad pour test
-if st.session_state.get('force_ipad', False):
-    device_type = "ipad"
-    st.warning("📱 Mode iPad forcé activé")
-    if st.button("Retour mode normal"):
-        st.session_state.force_ipad = False
-        st.rerun()
-
 # Navigation par onglets
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", "📍 Points", "📏 Lignes", "⭕ Cercles/Arcs", "🔷 Polygones", "🔧 Divers", "🗺️ Visualisation"])
-
 
 
 # ONGLET GESTION KML
@@ -2475,6 +2447,7 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
 
 
 
