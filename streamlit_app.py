@@ -18,39 +18,35 @@ import struct
 import zlib
 import requests
 import uuid
-import subprocess
-import tempfile
 
-# Config de la page
-st.set_page_config(page_title="KML Generator", page_icon="🌍")
+import streamlit as st
 
-# --- Patch Safari iPadOS : désactiver WebSocket et afficher debug ---
-st.markdown(
-    """
-    <script>
-    (function() {
-        const ua = navigator.userAgent || navigator.vendor || window.opera;
-        const isIOS = /iPad|iPhone|iPod/.test(ua) || 
-                      (ua.includes("Macintosh") && "ontouchend" in document);
+import streamlit as st
 
-        if (isIOS) {
-            document.body.insertAdjacentHTML(
-                "afterbegin",
-                "<div style='background:#ffdddd;color:#a00;padding:10px;font-weight:bold;'>✅ iOS/iPad détecté → WebSocket désactivé (fallback HTTP)</div>"
-            );
-            window.WebSocket = undefined;  // Force Streamlit à basculer en HTTP polling
-        } else {
-            document.body.insertAdjacentHTML(
-                "afterbegin",
-                "<div style='background:#ddffdd;color:#070;padding:10px;font-weight:bold;'>🌍 Navigateur standard → WebSocket actif</div>"
-            );
-        }
-    })();
-    </script>
-    """,
-    unsafe_allow_html=True
-)
+# --- Correctifs spécifiques Safari iPadOS ---
+html_fix = """
+<head>
+  <!-- Empêcher Safari de garder un cache -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 
+  <!-- Forcer l'affichage mobile (comme iPhone) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+</head>
+
+<script>
+  // Safari iPadOS : forcer un rechargement complet à chaque ouverture
+  if (window.performance && window.performance.navigation.type !== 1) {
+      console.log("Premier chargement détecté -> Hard reload forcé");
+      window.location.reload(true);
+  } else {
+      console.log("Rechargement complet OK");
+  }
+</script>
+"""
+
+st.markdown(html_fix, unsafe_allow_html=True)
 
 # Configuration API directe
 API_BASE_URL = "https://kml-api-docker.onrender.com"
@@ -70,6 +66,61 @@ try:
     RASTERIO_AVAILABLE = True
 except ImportError:
     RASTERIO_AVAILABLE = False
+
+# Détection automatique du type d'appareil
+def detect_device():
+    try:
+        user_agent = st.context.headers.get("User-Agent", "")
+        # Debug pour iPad
+        if "iPad" in user_agent or "Macintosh" in user_agent:
+            return "ipad"
+        elif "iPhone" in user_agent or "Mobile" in user_agent:
+            return "mobile"
+        else:
+            return "desktop"
+    except:
+        return "desktop"
+
+# Fonction de debug pour iPad
+def debug_device_info():
+    try:
+        user_agent = st.context.headers.get("User-Agent", "Inconnu")
+        return user_agent
+    except:
+        return "Erreur accès headers"
+
+# Configuration adaptative selon l'appareil
+device_type = detect_device()
+
+if device_type == "ipad":
+    st.set_page_config(
+        page_title="KML Generator - iPad",
+        layout="centered",
+        initial_sidebar_state="collapsed",
+        menu_items=None
+    )
+elif device_type == "mobile":
+    st.set_page_config(
+        page_title="KML Generator - Mobile",
+        layout="centered",
+        initial_sidebar_state="collapsed",
+        menu_items=None
+    )
+else:
+    st.set_page_config(
+        page_title="Générateur KML pour SDVFR",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+        menu_items=None
+    )
+
+# Optimisations selon l'appareil
+if 'mobile_optimized' not in st.session_state:
+    st.session_state.mobile_optimized = device_type in ["ipad", "mobile"]
+
+# Configuration API chargée depuis config.py
+
+# Version ultra-minimaliste pour iOS 26
 
 # Initialisation des données de session
 if 'points_data' not in st.session_state:
@@ -1133,8 +1184,36 @@ def create_map():
     
     return m
 
+# Interface principale adaptative
+device_type = detect_device()
+
+# Debug pour iPad
+if device_type == "ipad":
+    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator - iPad</h1>", unsafe_allow_html=True)
+    st.success("📱 Interface optimisée pour iPad détectée")
+    with st.expander("Debug iPad"):
+        st.code(f"User-Agent: {debug_device_info()}")
+elif device_type == "mobile":
+    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ KML Generator</h1>", unsafe_allow_html=True)
+    st.info("📱 Interface mobile")
+else:
+    st.markdown("<h1 style='margin-top: 0px; padding-top: 0px;'>🗺️ Générateur KML pour SDVFR</h1>", unsafe_allow_html=True)
+    # Bouton de test pour forcer le mode iPad
+    if st.button("📱 Forcer mode iPad (test)"):
+        st.session_state.force_ipad = True
+        st.rerun()
+
+# Mode forcé iPad pour test
+if st.session_state.get('force_ipad', False):
+    device_type = "ipad"
+    st.warning("📱 Mode iPad forcé activé")
+    if st.button("Retour mode normal"):
+        st.session_state.force_ipad = False
+        st.rerun()
+
 # Navigation par onglets
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", "📍 Points", "📏 Lignes", "⭕ Cercles/Arcs", "🔷 Polygones", "🔧 Divers", "🗺️ Visualisation"])
+
 
 
 # ONGLET GESTION KML
@@ -2445,13 +2524,4 @@ with tab7:
 
 # Footer
 st.markdown("---")
-
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
-
-
-
-
-
-
-
-
