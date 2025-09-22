@@ -19,9 +19,24 @@ import zlib
 import requests
 import uuid
 
-import streamlit as st
 
-import streamlit as st
+# Désactiver le service worker sur iOS
+st.set_page_config(page_title="KML Generator", page_icon="🌍")
+st.markdown(
+    """
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+                registration.unregister()
+            }
+        });
+    }
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # --- Correctifs spécifiques Safari iPadOS ---
 html_fix = """
@@ -2524,4 +2539,5 @@ with tab7:
 
 # Footer
 st.markdown("---")
+
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
