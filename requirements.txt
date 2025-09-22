@@ -1,8 +1,6 @@
+streamlit
 simplekml
+pandas
 numpy
 openpyxl
 requests
-streamlit>=1.49.1,<1.50.0
-streamlit-folium>=0.25.1,<0.26.0
-folium>=0.20.0,<0.21.0
-pandas>=2.3.2,<2.4.0
