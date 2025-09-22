@@ -19,9 +19,6 @@ import zlib
 import requests
 import uuid
 
-
-import streamlit as st
-
 # Config de la page
 st.set_page_config(page_title="KML Generator", page_icon="🌍")
 
@@ -2541,4 +2538,5 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
 
