@@ -24,7 +24,7 @@ import tempfile
 # Config de la page
 st.set_page_config(page_title="KML Generator", page_icon="🌍")
 
-# --- Patch Safari iPadOS : désactiver WebSocket pour forcer HTTP polling ---
+# --- Patch Safari iPadOS : désactiver WebSocket et afficher debug dans la page ---
 st.markdown(
     """
     <script>
@@ -34,17 +34,22 @@ st.markdown(
                       (ua.includes("Macintosh") && "ontouchend" in document);
 
         if (isIOS) {
-            console.log("✅ Safari iOS/iPad détecté → désactivation WebSocket");
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                "<div style='background:#ffdddd;color:#a00;padding:10px;font-weight:bold;'>✅ Safari iOS/iPad détecté → WebSocket désactivé (fallback HTTP)</div>"
+            );
             window.WebSocket = undefined;  // Force Streamlit à basculer en HTTP polling
         } else {
-            console.log("Navigateur standard → WebSocket actif");
+            document.body.insertAdjacentHTML(
+                "afterbegin",
+                "<div style='background:#ddffdd;color:#070;padding:10px;font-weight:bold;'>🌍 Navigateur standard → WebSocket actif</div>"
+            );
         }
     })();
     </script>
     """,
     unsafe_allow_html=True
 )
-
 
 
 # Configuration API directe
@@ -2521,6 +2526,7 @@ with tab7:
 st.markdown("---")
 
 st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+
 
 
 
