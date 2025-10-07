@@ -35,21 +35,44 @@ input[type=number]::-webkit-inner-spin-button {
 input[type=number] {
     -moz-appearance: textfield;
 }
-
-/* Sélection automatique du texte au focus */
-input[type=number]:focus,
-input[type=text]:focus {
-    user-select: all;
-}
 </style>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.addEventListener('click', function(e) {
-        if (e.target.type === 'number' || e.target.type === 'text') {
-            setTimeout(() => e.target.select(), 0);
+function selectAllText(element) {
+    element.select();
+    element.setSelectionRange(0, 99999);
+}
+
+function setupInputListeners() {
+    const inputs = document.querySelectorAll('input[type="number"], input[type="text"]');
+    inputs.forEach(input => {
+        input.removeEventListener('focus', selectAllText);
+        input.removeEventListener('click', selectAllText);
+        
+        input.addEventListener('focus', function() {
+            setTimeout(() => selectAllText(this), 10);
+        });
+        input.addEventListener('click', function() {
+            setTimeout(() => selectAllText(this), 10);
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', setupInputListeners);
+
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.addedNodes.length > 0) {
+            setupInputListeners();
         }
     });
 });
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
+
+setInterval(setupInputListeners, 1000);
 </script>
 """, unsafe_allow_html=True)
 
