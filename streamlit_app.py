@@ -1322,18 +1322,22 @@ with tab2:
             # Latitude sur une ligne
             col_lat_deg, col_lat_min, col_lat_dir = st.columns([2, 2, 1.5])
             with col_lat_deg:
-                lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="points_dm_lat_deg")
+                lat_deg_str = st.text_input("Lat °", placeholder="0-90", key="points_dm_lat_deg")
+                lat_deg = float(lat_deg_str) if lat_deg_str else 0
             with col_lat_min:
-                lat_min = st.number_input("Lat '", value=31.2, min_value=0.0, max_value=59.999, format="%.3f", key="points_dm_lat_min")
+                lat_min_str = st.text_input("Lat '", placeholder="0.000-59.999", key="points_dm_lat_min")
+                lat_min = float(lat_min_str) if lat_min_str else 0
             with col_lat_dir:
                 lat_dir = st.selectbox("N/S", ["N", "S"], key="points_dm_lat_dir")
             
             # Longitude sur une ligne
             col_lon_deg, col_lon_min, col_lon_dir = st.columns([2, 2, 1.5])
             with col_lon_deg:
-                lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="points_dm_lon_deg")
+                lon_deg_str = st.text_input("Lon °", placeholder="0-180", key="points_dm_lon_deg")
+                lon_deg = float(lon_deg_str) if lon_deg_str else 0
             with col_lon_min:
-                lon_min = st.number_input("Lon '", value=7.2, min_value=0.0, max_value=59.999, format="%.3f", key="points_dm_lon_min")
+                lon_min_str = st.text_input("Lon '", placeholder="0.000-59.999", key="points_dm_lon_min")
+                lon_min = float(lon_min_str) if lon_min_str else 0
             with col_lon_dir:
                 lon_dir = st.selectbox("E/W", ["E", "W"], key="points_dm_lon_dir")
             
@@ -1344,24 +1348,30 @@ with tab2:
         
         else:  # DMS
             # Latitude sur une ligne
-            col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([2, 2, 2, 1.5])
+            col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([1.5, 1.5, 1.5, 2])
             with col_lat_deg:
-                lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="points_dms_lat_deg")
+                lat_deg_str = st.text_input("Lat °", placeholder="0-90", key="points_dms_lat_deg")
+                lat_deg = float(lat_deg_str) if lat_deg_str else 0
             with col_lat_min:
-                lat_min = st.number_input("Lat '", value=31, min_value=0, max_value=59, key="points_dms_lat_min")
+                lat_min_str = st.text_input("Lat '", placeholder="0-59", key="points_dms_lat_min")
+                lat_min = float(lat_min_str) if lat_min_str else 0
             with col_lat_sec:
-                lat_sec = st.number_input("Lat \"", value=12.0, min_value=0.0, max_value=59.999, format="%.2f", key="points_dms_lat_sec")
+                lat_sec_str = st.text_input("Lat \"", placeholder="0.00-59.99", key="points_dms_lat_sec")
+                lat_sec = float(lat_sec_str) if lat_sec_str else 0
             with col_lat_dir:
                 lat_dir = st.selectbox("N/S", ["N", "S"], key="points_dms_lat_dir")
             
             # Longitude sur une ligne
-            col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([2, 2, 2, 1.5])
+            col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([1.5, 1.5, 1.5, 2])
             with col_lon_deg:
-                lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="points_dms_lon_deg")
+                lon_deg_str = st.text_input("Lon °", placeholder="0-180", key="points_dms_lon_deg")
+                lon_deg = float(lon_deg_str) if lon_deg_str else 0
             with col_lon_min:
-                lon_min = st.number_input("Lon '", value=7, min_value=0, max_value=59, key="points_dms_lon_min")
+                lon_min_str = st.text_input("Lon '", placeholder="0-59", key="points_dms_lon_min")
+                lon_min = float(lon_min_str) if lon_min_str else 0
             with col_lon_sec:
-                lon_sec = st.number_input("Lon \"", value=12.0, min_value=0.0, max_value=59.999, format="%.2f", key="points_dms_lon_sec")
+                lon_sec_str = st.text_input("Lon \"", placeholder="0.00-59.99", key="points_dms_lon_sec")
+                lon_sec = float(lon_sec_str) if lon_sec_str else 0
             with col_lon_dir:
                 lon_dir = st.selectbox("E/W", ["E", "W"], key="points_dms_lon_dir")
             
@@ -1395,7 +1405,7 @@ with tab2:
             
             col_dist, col_bear = st.columns(2)
             with col_dist:
-                distance_val = st.number_input("Distance", value=1.0, min_value=0.1, key="points_distance")
+                distance_val = st.number_input("Distance", value=0.0, min_value=0.1, key="points_distance")
                 distance_unit = st.selectbox("Unité", ["mètres", "nautiques"], key="points_distance_unit")
             with col_bear:
                 bearing_deg = st.number_input("Gisement (degrés)", value=0.0, min_value=0.0, max_value=359.9, key="points_bearing")
@@ -1768,7 +1778,7 @@ with tab4:
         
         col_radius, col_segments = st.columns(2)
         with col_radius:
-            radius_val = st.number_input("Rayon", value=1.0, min_value=0.1, key="circle_radius")
+            radius_val = st.number_input("Rayon", value=0.0, min_value=0.1, key="circle_radius")
             radius_unit = st.selectbox("Unité rayon", ["nautiques", "mètres"], key="circle_radius_unit")
         with col_segments:
             num_segments = st.number_input("Segments", value=72, min_value=8, max_value=360, key="circle_segments")
@@ -2084,10 +2094,10 @@ with tab5:
             
             col_length, col_width_rect = st.columns(2)
             with col_length:
-                length_val = st.number_input("Longueur", value=1.0, min_value=0.1, key="rect_length")
+                length_val = st.number_input("Longueur", value=0.0, min_value=0.1, key="rect_length")
                 length_unit = st.selectbox("Unité longueur", ["nautiques", "mètres"], key="rect_length_unit")
             with col_width_rect:
-                width_val = st.number_input("Largeur", value=0.5, min_value=0.1, key="rect_width_val")
+                width_val = st.number_input("Largeur", value=0.0, min_value=0.1, key="rect_width_val")
                 width_unit = st.selectbox("Unité largeur", ["nautiques", "mètres"], key="rect_width_unit")
             
             bearing_deg = st.number_input("Cap (degrés)", value=0, min_value=0, max_value=359, key="rect_bearing")
