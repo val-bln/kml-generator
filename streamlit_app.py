@@ -1580,7 +1580,7 @@ with tab3:
                     else:
                         st.error("Nom de ligne déjà existant")
             elif not line_name:
-                st.info("Saisissez un nom pour la ligne")
+                st.error("Nom requis")
             else:
                 st.info("Ajoutez au moins 2 points")
         
@@ -1669,7 +1669,7 @@ with tab4:
                     if lon_dir == 'W': center_lon = -center_lon
                 
                 else:  # DMS
-                    col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([2, 2, 2, 1.5])
+                    col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([1.5, 1.5, 1.5, 2])
                     with col_lat_deg:
                         lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="circle_dms_lat_deg")
                     with col_lat_min:
@@ -1679,7 +1679,7 @@ with tab4:
                     with col_lat_dir:
                         lat_dir = st.selectbox("N/S", ["N", "S"], key="circle_dms_lat_dir")
                     
-                    col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([2, 2, 2, 1.5])
+                    col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([1.5, 1.5, 1.5, 2])
                     with col_lon_deg:
                         lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="circle_dms_lon_deg")
                     with col_lon_min:
@@ -1745,7 +1745,7 @@ with tab4:
                 if lon_dir == 'W': center_lon = -center_lon
             
             else:  # DMS
-                col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([2, 2, 2, 1.5])
+                col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([1.5, 1.5, 1.5, 2])
                 with col_lat_deg:
                     lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="circle_dms_lat_deg_no_points")
                 with col_lat_min:
@@ -1755,7 +1755,7 @@ with tab4:
                 with col_lat_dir:
                     lat_dir = st.selectbox("N/S", ["N", "S"], key="circle_dms_lat_dir_no_points")
                 
-                col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([2, 2, 2, 1.5])
+                col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([1.5, 1.5, 1.5, 2])
                 with col_lon_deg:
                     lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="circle_dms_lon_deg_no_points")
                 with col_lon_min:
@@ -1987,7 +1987,7 @@ with tab5:
                         if lon_dir == 'W': rect_center_lon = -rect_center_lon
                     
                     else:  # DMS
-                        col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([2, 2, 2, 1.5])
+                        col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([1.5, 1.5, 1.5, 2])
                         with col_lat_deg:
                             lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="rect_dms_lat_deg")
                         with col_lat_min:
@@ -1997,7 +1997,7 @@ with tab5:
                         with col_lat_dir:
                             lat_dir = st.selectbox("N/S", ["N", "S"], key="rect_dms_lat_dir")
                         
-                        col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([2, 2, 2, 1.5])
+                        col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([1.5, 1.5, 1.5, 2])
                         with col_lon_deg:
                             lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="rect_dms_lon_deg")
                         with col_lon_min:
@@ -2063,7 +2063,7 @@ with tab5:
                     if lon_dir == 'W': rect_center_lon = -rect_center_lon
                 
                 else:  # DMS
-                    col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([2, 2, 2, 1.5])
+                    col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([1.5, 1.5, 1.5, 2])
                     with col_lat_deg:
                         lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="rect_dms_lat_deg_no_points")
                     with col_lat_min:
@@ -2073,7 +2073,7 @@ with tab5:
                     with col_lat_dir:
                         lat_dir = st.selectbox("N/S", ["N", "S"], key="rect_dms_lat_dir_no_points")
                     
-                    col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([2, 2, 2, 1.5])
+                    col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([1.5, 1.5, 1.5, 2])
                     with col_lon_deg:
                         lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="rect_dms_lon_deg_no_points")
                     with col_lon_min:
