@@ -1341,10 +1341,12 @@ with tab2:
         elif coord_format == "Calamar":
             col_x, col_y = st.columns(2)
             with col_x:
-                x_val = st.number_input("Axe Y", value=0.0, key="points_calamar_x")
+                x_val_str = st.text_input("Axe Y", value="0.0", key="points_calamar_x")
+                x_val = float(x_val_str) if x_val_str else 0.0
                 x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="points_calamar_x_unit")
             with col_y:
-                y_val = st.number_input("Axe X", value=0.0, key="points_calamar_y")
+                y_val_str = st.text_input("Axe X", value="0.0", key="points_calamar_y")
+                y_val = float(y_val_str) if y_val_str else 0.0
                 y_unit = st.selectbox("Unité X", ["mD", "mG"], key="points_calamar_y_unit")
             
             lat, lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -1659,10 +1661,12 @@ with tab4:
                 elif coord_format_circle == "Calamar":
                     col_x, col_y = st.columns(2)
                     with col_x:
-                        x_val = st.number_input("Axe Y", value=0.0, key="circle_calamar_x")
+                        x_val_str = st.text_input("Axe Y", value="0.0", key="circle_calamar_x")
+                        x_val = float(x_val_str) if x_val_str else 0.0
                         x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="circle_calamar_x_unit")
                     with col_y:
-                        y_val = st.number_input("Axe X", value=0.0, key="circle_calamar_y")
+                        y_val_str = st.text_input("Axe X", value="0.0", key="circle_calamar_y")
+                        y_val = float(y_val_str) if y_val_str else 0.0
                         y_unit = st.selectbox("Unité X", ["mD", "mG"], key="circle_calamar_y_unit")
                     
                     center_lat, center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -1735,10 +1739,12 @@ with tab4:
             elif coord_format_circle == "Calamar":
                 col_x, col_y = st.columns(2)
                 with col_x:
-                    x_val = st.number_input("Axe Y", value=0.0, key="circle_calamar_x_no_points")
+                    x_val_str = st.text_input("Axe Y", value="0.0", key="circle_calamar_x_no_points")
+                    x_val = float(x_val_str) if x_val_str else 0.0
                     x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="circle_calamar_x_unit_no_points")
                 with col_y:
-                    y_val = st.number_input("Axe X", value=0.0, key="circle_calamar_y_no_points")
+                    y_val_str = st.text_input("Axe X", value="0.0", key="circle_calamar_y_no_points")
+                    y_val = float(y_val_str) if y_val_str else 0.0
                     y_unit = st.selectbox("Unité X", ["mD", "mG"], key="circle_calamar_y_unit_no_points")
                 
                 center_lat, center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -1799,10 +1805,12 @@ with tab4:
         
         col_radius, col_segments = st.columns(2)
         with col_radius:
-            radius_val = st.number_input("Rayon", value=1.0, min_value=0.1, key="circle_radius")
+            radius_val_str = st.text_input("Rayon", value="1.0", key="circle_radius")
+            radius_val = float(radius_val_str) if radius_val_str else 1.0
             radius_unit = st.selectbox("Unité rayon", ["nautiques", "mètres"], key="circle_radius_unit")
         with col_segments:
-            num_segments = st.number_input("Segments", value=72, min_value=8, max_value=360, key="circle_segments")
+            num_segments_str = st.text_input("Segments", value="72", key="circle_segments")
+            num_segments = int(float(num_segments_str)) if num_segments_str else 72
         
         is_arc = st.checkbox("Créer un arc de cercle")
         
@@ -1984,10 +1992,12 @@ with tab5:
                     elif coord_format_rect == "Calamar":
                         col_x, col_y = st.columns(2)
                         with col_x:
-                            x_val = st.number_input("Axe Y", value=0.0, key="rect_calamar_x")
+                            x_val_str = st.text_input("Axe Y", value="0.0", key="rect_calamar_x")
+                            x_val = float(x_val_str) if x_val_str else 0.0
                             x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="rect_calamar_x_unit")
                         with col_y:
-                            y_val = st.number_input("Axe X", value=0.0, key="rect_calamar_y")
+                            y_val_str = st.text_input("Axe X", value="0.0", key="rect_calamar_y")
+                            y_val = float(y_val_str) if y_val_str else 0.0
                             y_unit = st.selectbox("Unité X", ["mD", "mG"], key="rect_calamar_y_unit")
                         
                         rect_center_lat, rect_center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -2060,10 +2070,12 @@ with tab5:
                 elif coord_format_rect == "Calamar":
                     col_x, col_y = st.columns(2)
                     with col_x:
-                        x_val = st.number_input("Axe Y", value=0.0, key="rect_calamar_x_no_points")
+                        x_val_str = st.text_input("Axe Y", value="0.0", key="rect_calamar_x_no_points")
+                        x_val = float(x_val_str) if x_val_str else 0.0
                         x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="rect_calamar_x_unit_no_points")
                     with col_y:
-                        y_val = st.number_input("Axe X", value=0.0, key="rect_calamar_y_no_points")
+                        y_val_str = st.text_input("Axe X", value="0.0", key="rect_calamar_y_no_points")
+                        y_val = float(y_val_str) if y_val_str else 0.0
                         y_unit = st.selectbox("Unité X", ["mD", "mG"], key="rect_calamar_y_unit_no_points")
                     
                     rect_center_lat, rect_center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
