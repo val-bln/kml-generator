@@ -1564,30 +1564,29 @@ with tab3:
                             st.session_state.current_line_points.pop(i)
                             st.rerun()
         
-        col_validate, col_clear = st.columns(2)
-        with col_validate:
-            if len(st.session_state.current_line_points) >= 2 and line_name:
-                if st.button("✅ Valider la ligne", use_container_width=True):
-                    if not any(l['name'] == line_name for l in st.session_state.lines_data):
-                        line_coords = [(p["lon"], p["lat"]) for p in st.session_state.current_line_points]
-                        st.session_state.lines_data.append({
-                            "type": "Ligne", "name": line_name, "points": line_coords,
-                            "description": "", "color": line_color, "width": line_width
-                        })
-                        st.session_state.current_line_points = []
-                        st.success(f"Ligne '{line_name}' créée!")
-                        st.rerun()
-                    else:
-                        st.error("Nom de ligne déjà existant")
+        if st.button("📏 Générer Ligne", use_container_width=True):
+            if line_name and len(st.session_state.current_line_points) >= 2:
+                if not any(l['name'] == line_name for l in st.session_state.lines_data):
+                    line_coords = [(p["lon"], p["lat"]) for p in st.session_state.current_line_points]
+                    st.session_state.lines_data.append({
+                        "type": "Ligne", "name": line_name, "points": line_coords,
+                        "description": "", "color": line_color, "width": line_width
+                    })
+                    st.session_state.current_line_points = []
+                    st.success(f"Ligne '{line_name}' générée!")
+                    st.rerun()
+                else:
+                    st.error("Ce nom de ligne existe déjà")
             elif not line_name:
                 st.error("Nom requis")
-            else:
-                st.info("Ajoutez au moins 2 points")
+            elif len(st.session_state.current_line_points) < 2:
+                st.error("Ajoutez au moins 2 points")
         
-        with col_clear:
-            if st.button("🔄 Vider la ligne", use_container_width=True):
-                st.session_state.current_line_points = []
-                st.rerun()
+        col_clear = st.columns(1)[0]
+        
+        if st.button("🔄 Vider la ligne", use_container_width=True):
+            st.session_state.current_line_points = []
+            st.rerun()
         
 
     
@@ -1904,18 +1903,25 @@ with tab5:
                                 st.session_state.current_polygon_points.pop(i)
                                 st.rerun()
             
-            if len(st.session_state.current_polygon_points) >= 3 and polygon_name:
-                if st.button("✅ Valider le polygone", use_container_width=True):
-                    polygon_coords = [(p["lon"], p["lat"]) for p in st.session_state.current_polygon_points]
-                    polygon_coords.append(polygon_coords[0])  # Fermer le polygone
-                    
-                    st.session_state.rectangles_data.append({
-                        "type": "Polygone", "name": polygon_name, "points": polygon_coords,
-                        "description": "", "color": polygon_color, "width": polygon_width, "fill": fill_polygon
-                    })
-                    st.session_state.current_polygon_points = []
-                    st.success(f"Polygone '{polygon_name}' créé!")
-                    st.rerun()
+            if st.button("🔷 Générer Polygone", use_container_width=True):
+                if polygon_name and len(st.session_state.current_polygon_points) >= 3:
+                    if not any(r['name'] == polygon_name for r in st.session_state.rectangles_data):
+                        polygon_coords = [(p["lon"], p["lat"]) for p in st.session_state.current_polygon_points]
+                        polygon_coords.append(polygon_coords[0])  # Fermer le polygone
+                        
+                        st.session_state.rectangles_data.append({
+                            "type": "Polygone", "name": polygon_name, "points": polygon_coords,
+                            "description": "", "color": polygon_color, "width": polygon_width, "fill": fill_polygon
+                        })
+                        st.session_state.current_polygon_points = []
+                        st.success(f"Polygone '{polygon_name}' généré!")
+                        st.rerun()
+                    else:
+                        st.error("Ce nom de polygone existe déjà")
+                elif not polygon_name:
+                    st.error("Nom requis")
+                elif len(st.session_state.current_polygon_points) < 3:
+                    st.error("Ajoutez au moins 3 points")
             
             if st.button("🔄 Vider le polygone", use_container_width=True):
                 st.session_state.current_polygon_points = []
