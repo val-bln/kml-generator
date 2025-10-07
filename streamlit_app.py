@@ -2215,7 +2215,7 @@ with tab6:
 with tab7:
        
     # Contrôle des données de référence
-    col_ref1, col_ref2 = st.columns([3, 1])
+    col_ref1, col_ref2 = st.columns([2, 1])
     with col_ref1:
         show_ref = st.checkbox("📍 Afficher données de référence SDVFR", value=st.session_state.show_reference)
         if show_ref != st.session_state.show_reference:
@@ -2223,7 +2223,7 @@ with tab7:
             st.rerun()
     
     with col_ref2:
-        if st.button("🔄 Recharger référence"):
+        if st.button("🔄 Recharger référence", use_container_width=True):
             if load_reference_kml():
                 st.success("Référence rechargée!")
                 st.rerun()
