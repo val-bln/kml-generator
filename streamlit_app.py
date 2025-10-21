@@ -1351,18 +1351,22 @@ with tab2:
             # Latitude sur une ligne
             col_lat_deg, col_lat_min, col_lat_dir = st.columns([2, 2, 1.5])
             with col_lat_deg:
-                lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="points_dm_lat_deg")
+                lat_deg_str = st.text_input("Lat °", placeholder="44", key="points_dm_lat_deg")
+                lat_deg = int(float(lat_deg_str)) if lat_deg_str else 44
             with col_lat_min:
-                lat_min = st.number_input("Lat '", value=31.2, min_value=0.0, max_value=59.999, format="%.3f", key="points_dm_lat_min")
+                lat_min_str = st.text_input("Lat '", placeholder="31.200", key="points_dm_lat_min")
+                lat_min = float(lat_min_str) if lat_min_str else 31.2
             with col_lat_dir:
                 lat_dir = st.selectbox("N/S", ["N", "S"], key="points_dm_lat_dir")
             
             # Longitude sur une ligne
             col_lon_deg, col_lon_min, col_lon_dir = st.columns([2, 2, 1.5])
             with col_lon_deg:
-                lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="points_dm_lon_deg")
+                lon_deg_str = st.text_input("Lon °", placeholder="1", key="points_dm_lon_deg")
+                lon_deg = int(float(lon_deg_str)) if lon_deg_str else 1
             with col_lon_min:
-                lon_min = st.number_input("Lon '", value=7.2, min_value=0.0, max_value=59.999, format="%.3f", key="points_dm_lon_min")
+                lon_min_str = st.text_input("Lon '", placeholder="7.200", key="points_dm_lon_min")
+                lon_min = float(lon_min_str) if lon_min_str else 7.2
             with col_lon_dir:
                 lon_dir = st.selectbox("E/W", ["E", "W"], key="points_dm_lon_dir")
             
@@ -1375,22 +1379,28 @@ with tab2:
             # Latitude sur une ligne
             col_lat_deg, col_lat_min, col_lat_sec, col_lat_dir = st.columns([1.5, 1.5, 1.5, 2])
             with col_lat_deg:
-                lat_deg = st.number_input("Lat °", value=44, min_value=0, max_value=90, key="points_dms_lat_deg")
+                lat_deg_str = st.text_input("Lat °", placeholder="44", key="points_dms_lat_deg")
+                lat_deg = int(float(lat_deg_str)) if lat_deg_str else 44
             with col_lat_min:
-                lat_min = st.number_input("Lat '", value=31, min_value=0, max_value=59, key="points_dms_lat_min")
+                lat_min_str = st.text_input("Lat '", placeholder="31", key="points_dms_lat_min")
+                lat_min = int(float(lat_min_str)) if lat_min_str else 31
             with col_lat_sec:
-                lat_sec = st.number_input("Lat \"", value=12.0, min_value=0.0, max_value=59.999, format="%.2f", key="points_dms_lat_sec")
+                lat_sec_str = st.text_input("Lat \"", placeholder="12.00", key="points_dms_lat_sec")
+                lat_sec = float(lat_sec_str) if lat_sec_str else 12.0
             with col_lat_dir:
                 lat_dir = st.selectbox("N/S", ["N", "S"], key="points_dms_lat_dir")
             
             # Longitude sur une ligne
             col_lon_deg, col_lon_min, col_lon_sec, col_lon_dir = st.columns([1.5, 1.5, 1.5, 2])
             with col_lon_deg:
-                lon_deg = st.number_input("Lon °", value=1, min_value=0, max_value=180, key="points_dms_lon_deg")
+                lon_deg_str = st.text_input("Lon °", placeholder="1", key="points_dms_lon_deg")
+                lon_deg = int(float(lon_deg_str)) if lon_deg_str else 1
             with col_lon_min:
-                lon_min = st.number_input("Lon '", value=7, min_value=0, max_value=59, key="points_dms_lon_min")
+                lon_min_str = st.text_input("Lon '", placeholder="7", key="points_dms_lon_min")
+                lon_min = int(float(lon_min_str)) if lon_min_str else 7
             with col_lon_sec:
-                lon_sec = st.number_input("Lon \"", value=12.0, min_value=0.0, max_value=59.999, format="%.2f", key="points_dms_lon_sec")
+                lon_sec_str = st.text_input("Lon \"", placeholder="12.00", key="points_dms_lon_sec")
+                lon_sec = float(lon_sec_str) if lon_sec_str else 12.0
             with col_lon_dir:
                 lon_dir = st.selectbox("E/W", ["E", "W"], key="points_dms_lon_dir")
             
