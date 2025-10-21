@@ -1268,7 +1268,7 @@ with tab1:
                             # Vérifier que le GeoJSON contient des données
                             if not geojson_data['features']:
                                 st.warning("⚠️ Aucune donnée à convertir")
-                        return
+                            else:
                             
                             # Utiliser les paramètres minimaux qui fonctionnent avec SDVFR Next
                             mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
