@@ -1317,16 +1317,31 @@ with tab2:
                                    ["Degrés décimaux", "Degrés Minutes", "Degrés Minutes Secondes", "Calamar"])
         
         if coord_format == "Degrés décimaux":
-            lat = st.number_input("Latitude (ex: 44.5)", value=44.5, min_value=-90.0, max_value=90.0, format="%.6f", key="points_dd_lat")
-            lon = st.number_input("Longitude (ex: -1.65)", value=-1.65, min_value=-180.0, max_value=180.0, format="%.6f", key="points_dd_lon")
+            lat_str = st.text_input("Latitude (ex: 44.089056)", placeholder="44.089056", key="points_dd_lat")
+            lon_str = st.text_input("Longitude (ex: -1.123456)", placeholder="-1.123456", key="points_dd_lon")
+            try:
+                lat = float(lat_str) if lat_str else None
+                lon = float(lon_str) if lon_str else None
+            except ValueError:
+                lat, lon = None, None
+                if lat_str or lon_str:
+                    st.warning("⚠️ Coordonnées invalides")
         
         elif coord_format == "Calamar":
             col_x, col_y = st.columns(2)
             with col_x:
-                x_val = st.number_input("Axe Y", value=0.0, format="%.3f", key="points_calamar_x")
+                x_str = st.text_input("Axe Y", value="0.0", key="points_calamar_x")
+                try:
+                    x_val = float(x_str) if x_str else 0.0
+                except ValueError:
+                    x_val = 0.0
                 x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="points_calamar_x_unit")
             with col_y:
-                y_val = st.number_input("Axe X", value=0.0, format="%.3f", key="points_calamar_y")
+                y_str = st.text_input("Axe X", value="0.0", key="points_calamar_y")
+                try:
+                    y_val = float(y_str) if y_str else 0.0
+                except ValueError:
+                    y_val = 0.0
                 y_unit = st.selectbox("Unité X", ["mD", "mG"], key="points_calamar_y_unit")
             
             lat, lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -1626,16 +1641,31 @@ with tab4:
                                                    ["Degrés décimaux", "Degrés Minutes", "Degrés Minutes Secondes", "Calamar"], key="circle_coord_format")
                 
                 if coord_format_circle == "Degrés décimaux":
-                    center_lat = st.number_input("Latitude centre (ex: 44.5)", value=44.5, min_value=-90.0, max_value=90.0, format="%.6f", key="circle_dd_lat")
-                    center_lon = st.number_input("Longitude centre (ex: -1.65)", value=-1.65, min_value=-180.0, max_value=180.0, format="%.6f", key="circle_dd_lon")
+                    center_lat_str = st.text_input("Latitude centre (ex: 44.089056)", placeholder="44.089056", key="circle_dd_lat")
+                    center_lon_str = st.text_input("Longitude centre (ex: -1.123456)", placeholder="-1.123456", key="circle_dd_lon")
+                    try:
+                        center_lat = float(center_lat_str) if center_lat_str else None
+                        center_lon = float(center_lon_str) if center_lon_str else None
+                    except ValueError:
+                        center_lat, center_lon = None, None
+                        if center_lat_str or center_lon_str:
+                            st.warning("⚠️ Coordonnées invalides")
                 
                 elif coord_format_circle == "Calamar":
                     col_x, col_y = st.columns(2)
                     with col_x:
-                        x_val = st.number_input("Axe Y", value=0.0, format="%.3f", key="circle_calamar_x")
+                        x_str = st.text_input("Axe Y", value="0.0", key="circle_calamar_x")
+                        try:
+                            x_val = float(x_str) if x_str else 0.0
+                        except ValueError:
+                            x_val = 0.0
                         x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="circle_calamar_x_unit")
                     with col_y:
-                        y_val = st.number_input("Axe X", value=0.0, format="%.3f", key="circle_calamar_y")
+                        y_str = st.text_input("Axe X", value="0.0", key="circle_calamar_y")
+                        try:
+                            y_val = float(y_str) if y_str else 0.0
+                        except ValueError:
+                            y_val = 0.0
                         y_unit = st.selectbox("Unité X", ["mD", "mG"], key="circle_calamar_y_unit")
                     
                     center_lat, center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -1693,16 +1723,31 @@ with tab4:
                                                ["Degrés décimaux", "Degrés Minutes", "Degrés Minutes Secondes", "Calamar"], key="circle_coord_format_no_points")
             
             if coord_format_circle == "Degrés décimaux":
-                center_lat = st.number_input("Latitude centre (ex: 44.5)", value=44.5, min_value=-90.0, max_value=90.0, format="%.6f", key="circle_dd_lat_no_points")
-                center_lon = st.number_input("Longitude centre (ex: -1.65)", value=-1.65, min_value=-180.0, max_value=180.0, format="%.6f", key="circle_dd_lon_no_points")
+                center_lat_str = st.text_input("Latitude centre (ex: 44.089056)", placeholder="44.089056", key="circle_dd_lat_no_points")
+                center_lon_str = st.text_input("Longitude centre (ex: -1.123456)", placeholder="-1.123456", key="circle_dd_lon_no_points")
+                try:
+                    center_lat = float(center_lat_str) if center_lat_str else None
+                    center_lon = float(center_lon_str) if center_lon_str else None
+                except ValueError:
+                    center_lat, center_lon = None, None
+                    if center_lat_str or center_lon_str:
+                        st.warning("⚠️ Coordonnées invalides")
             
             elif coord_format_circle == "Calamar":
                 col_x, col_y = st.columns(2)
                 with col_x:
-                    x_val = st.number_input("Axe Y", value=0.0, format="%.3f", key="circle_calamar_x_no_points")
+                    x_str = st.text_input("Axe Y", value="0.0", key="circle_calamar_x_no_points")
+                    try:
+                        x_val = float(x_str) if x_str else 0.0
+                    except ValueError:
+                        x_val = 0.0
                     x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="circle_calamar_x_unit_no_points")
                 with col_y:
-                    y_val = st.number_input("Axe X", value=0.0, format="%.3f", key="circle_calamar_y_no_points")
+                    y_str = st.text_input("Axe X", value="0.0", key="circle_calamar_y_no_points")
+                    try:
+                        y_val = float(y_str) if y_str else 0.0
+                    except ValueError:
+                        y_val = 0.0
                     y_unit = st.selectbox("Unité X", ["mD", "mG"], key="circle_calamar_y_unit_no_points")
                 
                 center_lat, center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -1763,10 +1808,22 @@ with tab4:
         
         col_radius, col_segments = st.columns(2)
         with col_radius:
-            radius_val = st.number_input("Rayon", value=1.0, min_value=0.001, format="%.3f", key="circle_radius")
+            radius_str = st.text_input("Rayon", value="1.0", key="circle_radius")
+            try:
+                radius_val = float(radius_str) if radius_str else 1.0
+            except ValueError:
+                radius_val = 1.0
+                if radius_str:
+                    st.warning("⚠️ Rayon invalide, utilisation de 1.0")
             radius_unit = st.selectbox("Unité rayon", ["nautiques", "mètres"], key="circle_radius_unit")
         with col_segments:
-            num_segments = st.number_input("Segments", value=72, min_value=3, max_value=360, key="circle_segments")
+            segments_str = st.text_input("Segments", value="72", key="circle_segments")
+            try:
+                num_segments = int(float(segments_str)) if segments_str else 72
+            except ValueError:
+                num_segments = 72
+                if segments_str:
+                    st.warning("⚠️ Nombre de segments invalide, utilisation de 72")
         
         is_arc = st.checkbox("Créer un arc de cercle")
         
@@ -1933,16 +1990,31 @@ with tab5:
                                                      ["Degrés décimaux", "Degrés Minutes", "Degrés Minutes Secondes", "Calamar"], key="rect_coord_format")
                     
                     if coord_format_rect == "Degrés décimaux":
-                        rect_center_lat = st.number_input("Latitude centre (ex: 44.5)", value=44.5, min_value=-90.0, max_value=90.0, format="%.6f", key="rect_dd_lat")
-                        rect_center_lon = st.number_input("Longitude centre (ex: -1.65)", value=-1.65, min_value=-180.0, max_value=180.0, format="%.6f", key="rect_dd_lon")
+                        rect_center_lat_str = st.text_input("Latitude centre (ex: 44.089056)", placeholder="44.089056", key="rect_dd_lat")
+                        rect_center_lon_str = st.text_input("Longitude centre (ex: -1.123456)", placeholder="-1.123456", key="rect_dd_lon")
+                        try:
+                            rect_center_lat = float(rect_center_lat_str) if rect_center_lat_str else None
+                            rect_center_lon = float(rect_center_lon_str) if rect_center_lon_str else None
+                        except ValueError:
+                            rect_center_lat, rect_center_lon = None, None
+                            if rect_center_lat_str or rect_center_lon_str:
+                                st.warning("⚠️ Coordonnées invalides")
                     
                     elif coord_format_rect == "Calamar":
                         col_x, col_y = st.columns(2)
                         with col_x:
-                            x_val = st.number_input("Axe Y", value=0.0, format="%.3f", key="rect_calamar_x")
+                            x_str = st.text_input("Axe Y", value="0.0", key="rect_calamar_x")
+                            try:
+                                x_val = float(x_str) if x_str else 0.0
+                            except ValueError:
+                                x_val = 0.0
                             x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="rect_calamar_x_unit")
                         with col_y:
-                            y_val = st.number_input("Axe X", value=0.0, format="%.3f", key="rect_calamar_y")
+                            y_str = st.text_input("Axe X", value="0.0", key="rect_calamar_y")
+                            try:
+                                y_val = float(y_str) if y_str else 0.0
+                            except ValueError:
+                                y_val = 0.0
                             y_unit = st.selectbox("Unité X", ["mD", "mG"], key="rect_calamar_y_unit")
                         
                         rect_center_lat, rect_center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
@@ -2000,16 +2072,31 @@ with tab5:
                                                  ["Degrés décimaux", "Degrés Minutes", "Degrés Minutes Secondes", "Calamar"], key="rect_coord_format_no_points")
                 
                 if coord_format_rect == "Degrés décimaux":
-                    rect_center_lat = st.number_input("Latitude centre (ex: 44.5)", value=44.5, min_value=-90.0, max_value=90.0, format="%.6f", key="rect_dd_lat_no_points")
-                    rect_center_lon = st.number_input("Longitude centre (ex: -1.65)", value=-1.65, min_value=-180.0, max_value=180.0, format="%.6f", key="rect_dd_lon_no_points")
+                    rect_center_lat_str = st.text_input("Latitude centre (ex: 44.089056)", placeholder="44.089056", key="rect_dd_lat_no_points")
+                    rect_center_lon_str = st.text_input("Longitude centre (ex: -1.123456)", placeholder="-1.123456", key="rect_dd_lon_no_points")
+                    try:
+                        rect_center_lat = float(rect_center_lat_str) if rect_center_lat_str else None
+                        rect_center_lon = float(rect_center_lon_str) if rect_center_lon_str else None
+                    except ValueError:
+                        rect_center_lat, rect_center_lon = None, None
+                        if rect_center_lat_str or rect_center_lon_str:
+                            st.warning("⚠️ Coordonnées invalides")
                 
                 elif coord_format_rect == "Calamar":
                     col_x, col_y = st.columns(2)
                     with col_x:
-                        x_val = st.number_input("Axe Y", value=0.0, format="%.3f", key="rect_calamar_x_no_points")
+                        x_str = st.text_input("Axe Y", value="0.0", key="rect_calamar_x_no_points")
+                        try:
+                            x_val = float(x_str) if x_str else 0.0
+                        except ValueError:
+                            x_val = 0.0
                         x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="rect_calamar_x_unit_no_points")
                     with col_y:
-                        y_val = st.number_input("Axe X", value=0.0, format="%.3f", key="rect_calamar_y_no_points")
+                        y_str = st.text_input("Axe X", value="0.0", key="rect_calamar_y_no_points")
+                        try:
+                            y_val = float(y_str) if y_str else 0.0
+                        except ValueError:
+                            y_val = 0.0
                         y_unit = st.selectbox("Unité X", ["mD", "mG"], key="rect_calamar_y_unit_no_points")
                     
                     rect_center_lat, rect_center_lon = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
