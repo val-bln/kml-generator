@@ -1271,7 +1271,7 @@ with tab1:
                             else:
                             
                             # Utiliser les paramètres minimaux qui fonctionnent avec SDVFR Next
-                            mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
+                                mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
                             
                             st.download_button(
                                 label="💾 Télécharger MBTiles",
