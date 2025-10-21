@@ -645,7 +645,7 @@ def generate_geojson():
                     }
                 })
     
-    # Cercles - représentés comme Polygon avec propriétés étendues
+    # Cercles - représentés comme Polygon simple
     for circle in st.session_state.circles_data:
         if 'points' in circle and circle['points'] and len(circle['points']) >= 3:
             coordinates = []
@@ -663,29 +663,14 @@ def generate_geojson():
                     coordinates.append(coordinates[0])
                 
                 if len(coordinates) >= 4:
-                    # Calculer le rayon et l'unité pour les propriétés
-                    radius_val = circle['radius_km']
-                    radius_unit = "kilometers" if circle['radius_unit'] == 'mètres' else "nautical_miles"
-                    if circle['radius_unit'] == 'nautiques':
-                        radius_val = radius_val / 1.852
-                        radius_unit = "nautical_miles"
-                    elif circle['radius_unit'] == 'mètres':
-                        radius_val = radius_val * 1000
-                        radius_unit = "meters"
-                    
                     features.append({
                         "type": "Feature",
-                        "properties": {
-                            "name": str(circle['name']),
-                            "type": "circle",
-                            "radius": int(radius_val) if radius_unit == "meters" else radius_val,
-                            "radius_unit": radius_unit,
-                            "center_lon": float(circle['center_lon']),
-                            "center_lat": float(circle['center_lat'])
-                        },
                         "geometry": {
                             "type": "Polygon",
                             "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(circle['name'])
                         }
                     })
     
@@ -720,6 +705,99 @@ def generate_geojson():
                     })
     
     # Structure GeoJSON strictement conforme
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
+
+def generate_geojson_for_tippecanoe():
+    """Génère un GeoJSON pour Tippecanoe sans les points seuls"""
+    features = []
+    
+    # Lignes - utiliser MultiLineString pour Tippecanoe
+    for line in st.session_state.lines_data:
+        if 'points' in line and line['points'] and len(line['points']) >= 2:
+            coordinates = []
+            for coord in line['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 2:
+                features.append({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiLineString",
+                        "coordinates": [coordinates]
+                    },
+                    "properties": {
+                        "name": str(line['name']),
+                        "description": str(line.get('description', ''))
+                    }
+                })
+    
+    # Cercles - représentés comme Polygon simple
+    for circle in st.session_state.circles_data:
+        if 'points' in circle and circle['points'] and len(circle['points']) >= 3:
+            coordinates = []
+            for coord in circle['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                # Assurer fermeture du polygone
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(circle['name'])
+                        }
+                    })
+    
+    # Polygones et rectangles
+    for rect in st.session_state.rectangles_data:
+        if 'points' in rect and rect['points'] and len(rect['points']) >= 3:
+            coordinates = []
+            for coord in rect['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                # Assurer fermeture du polygone
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(rect['name']),
+                            "description": str(rect.get('description', ''))
+                        }
+                    })
+    
     return {
         "type": "FeatureCollection",
         "features": features
@@ -1201,8 +1279,8 @@ with tab1:
                     
                     with st.spinner("Conversion en cours via Tippecanoe..."):
                         try:
-                            # Générer le GeoJSON optimisé
-                            geojson_data = generate_geojson()
+                            # Générer le GeoJSON optimisé pour Tippecanoe (sans points)
+                            geojson_data = generate_geojson_for_tippecanoe()
                             
                             # Vérifier que le GeoJSON contient des données
                             if not geojson_data['features']:
