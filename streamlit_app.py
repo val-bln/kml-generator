@@ -598,201 +598,145 @@ def generate_kml():
     return kml
 
 def generate_geojson():
-    """Génère un GeoJSON optimisé pour Tippecanoe avec validation stricte"""
+    """Génère un GeoJSON strictement conforme aux spécifications Tippecanoe"""
     features = []
     
-    # Mapping couleurs standardisé pour compatibilité maximale
-    color_map = {
-        'rouge': '#FF0000', 'vert': '#00FF00', 'bleu': '#0000FF',
-        'jaune': '#FFFF00', 'orange': '#FF8000', 'cyan': '#00FFFF', 
-        'magenta': '#FF00FF', 'noir': '#000000', 'blanc': '#FFFFFF'
-    }
-    
-    def validate_coordinates(coords):
-        """Valide et nettoie les coordonnées"""
-        valid_coords = []
-        for coord in coords:
-            if isinstance(coord, (list, tuple)) and len(coord) >= 2:
-                try:
-                    lon, lat = float(coord[0]), float(coord[1])
-                    # Vérifier que les coordonnées sont dans les limites valides
-                    if -180 <= lon <= 180 and -90 <= lat <= 90:
-                        valid_coords.append([lon, lat])
-                except (ValueError, TypeError):
-                    continue
-        return valid_coords
-    
-    # Points - format Mapbox/Tippecanoe standard
+    # Points
     for point in st.session_state.points_data:
         try:
             lon, lat = float(point['lon']), float(point['lat'])
             if -180 <= lon <= 180 and -90 <= lat <= 90:
                 features.append({
                     "type": "Feature",
-                    "properties": {
-                        "name": str(point['name']),
-                        "description": str(point.get('description', '')),
-                        "type": "point",
-                        "marker-color": "#FF0000",
-                        "marker-size": "medium",
-                        "marker-symbol": "circle"
-                    },
                     "geometry": {
                         "type": "Point",
                         "coordinates": [lon, lat]
+                    },
+                    "properties": {
+                        "name": str(point['name']),
+                        "type": "point",
+                        "description": str(point.get('description', ''))
                     }
                 })
         except (ValueError, TypeError, KeyError):
             continue
     
-    # Lignes - validation stricte des coordonnées
+    # Lignes
     for line in st.session_state.lines_data:
-        if 'points' in line and line['points']:
-            valid_coords = validate_coordinates(line['points'])
+        if 'points' in line and line['points'] and len(line['points']) >= 2:
+            coordinates = []
+            for coord in line['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
             
-            if len(valid_coords) >= 2:
-                stroke_color = color_map.get(line.get('color', 'rouge'), '#FF0000')
+            if len(coordinates) >= 2:
                 features.append({
                     "type": "Feature",
-                    "properties": {
-                        "name": str(line['name']),
-                        "description": str(line.get('description', '')),
-                        "type": "line",
-                        "stroke": stroke_color,
-                        "stroke-width": max(1, int(line.get('width', 2))),
-                        "stroke-opacity": 1.0
-                    },
                     "geometry": {
                         "type": "LineString",
-                        "coordinates": valid_coords
+                        "coordinates": coordinates
+                    },
+                    "properties": {
+                        "name": str(line['name']),
+                        "type": "line",
+                        "description": str(line.get('description', ''))
                     }
                 })
     
-    # Cercles et arcs - gestion stricte pour SDVFR Next
+    # Cercles - représentés comme Point avec propriété radius
     for circle in st.session_state.circles_data:
-        if 'points' in circle and circle['points']:
-            valid_coords = validate_coordinates(circle['points'])
-            
-            if len(valid_coords) >= 2:
-                stroke_color = color_map.get(circle.get('color', 'rouge'), '#FF0000')
+        if circle.get('type') == 'Cercle' and 'center_lat' in circle and 'center_lon' in circle:
+            try:
+                lon, lat = float(circle['center_lon']), float(circle['center_lat'])
+                radius_m = circle['radius_km'] * 1000  # Convertir en mètres
                 
-                # Arc ouvert = LineString
-                if circle.get('type') == 'Arc' and not circle.get('close_arc', True):
+                if -180 <= lon <= 180 and -90 <= lat <= 90:
                     features.append({
                         "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [lon, lat]
+                        },
                         "properties": {
                             "name": str(circle['name']),
-                            "description": str(circle.get('description', '')),
-                            "type": "line",
-                            "stroke": stroke_color,
-                            "stroke-width": max(1, int(circle.get('width', 2))),
-                            "stroke-opacity": 1.0
-                        },
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": valid_coords
+                            "type": "circle",
+                            "radius": int(radius_m),
+                            "description": str(circle.get('description', ''))
                         }
                     })
-                else:
-                    # Cercle/arc fermé = Polygon avec validation stricte
-                    if len(valid_coords) >= 3:
-                        # Nettoyer les coordonnées dupliquées consécutives
-                        clean_coords = [valid_coords[0]]
-                        for coord in valid_coords[1:]:
-                            if coord != clean_coords[-1]:
-                                clean_coords.append(coord)
-                        
-                        # Assurer fermeture stricte
-                        if clean_coords[0] != clean_coords[-1]:
-                            clean_coords.append(clean_coords[0])
-                        
-                        # Vérifier minimum 4 points pour un polygone valide
-                        if len(clean_coords) >= 4:
-                            properties = {
-                                "name": str(circle['name']),
-                                "description": str(circle.get('description', '')),
-                                "type": "polygon",
-                                "stroke": stroke_color,
-                                "stroke-width": max(1, int(circle.get('width', 2))),
-                                "stroke-opacity": 1.0,
-                                "fill-opacity": 0.3 if circle.get('fill', False) else 0.0
-                            }
-                            
-                            # Ajouter remplissage si demandé
-                            if circle.get('fill', False):
-                                properties["fill"] = stroke_color
-                            
-                            features.append({
-                                "type": "Feature",
-                                "properties": properties,
-                                "geometry": {
-                                    "type": "Polygon",
-                                    "coordinates": [clean_coords]
-                                }
-                            })
-    
-    # Rectangles et polygones - validation renforcée
-    for rect in st.session_state.rectangles_data:
-        if 'points' in rect and rect['points']:
-            valid_coords = validate_coordinates(rect['points'])
+            except (ValueError, TypeError, KeyError):
+                continue
+        
+        # Arcs et cercles avec points - comme Polygon
+        elif 'points' in circle and circle['points'] and len(circle['points']) >= 3:
+            coordinates = []
+            for coord in circle['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
             
-            if len(valid_coords) >= 3:
+            if len(coordinates) >= 3:
                 # Assurer fermeture du polygone
-                if valid_coords[0] != valid_coords[-1]:
-                    valid_coords.append(valid_coords[0])
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
                 
-                # Vérifier minimum 4 points pour un polygone valide
-                if len(valid_coords) >= 4:
-                    stroke_color = color_map.get(rect.get('color', 'rouge'), '#FF0000')
-                    
-                    # Déterminer le type d'objet
-                    obj_type = "polygon"
-                    
-                    properties = {
-                        "name": str(rect['name']),
-                        "description": str(rect.get('description', '')),
-                        "type": obj_type,
-                        "stroke": stroke_color,
-                        "stroke-width": max(1, int(rect.get('width', 2))),
-                        "stroke-opacity": 1.0
-                    }
-                    
-                    # Ajouter métadonnées spécifiques aux rectangles
-                    if obj_type == "rectangle":
-                        properties["length_m"] = int(rect.get('length_km', 0) * 1000)
-                        properties["width_m"] = int(rect.get('width_km', 0) * 1000)
-                        properties["bearing"] = int(rect.get('bearing_deg', 0))
-                    
-                    # Ajouter remplissage si demandé
-                    if rect.get('fill', False):
-                        properties["fill"] = stroke_color
-                        properties["fill-opacity"] = 0.3
-                    else:
-                        properties["fill-opacity"] = 0.0
-                    
+                if len(coordinates) >= 4:
                     features.append({
                         "type": "Feature",
-                        "properties": properties,
                         "geometry": {
                             "type": "Polygon",
-                            "coordinates": [valid_coords]
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(circle['name']),
+                            "type": "polygon",
+                            "description": str(circle.get('description', ''))
                         }
                     })
     
-    # Créer le GeoJSON final avec métadonnées
-    geojson = {
+    # Polygones et rectangles
+    for rect in st.session_state.rectangles_data:
+        if 'points' in rect and rect['points'] and len(rect['points']) >= 3:
+            coordinates = []
+            for coord in rect['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                # Assurer fermeture du polygone
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(rect['name']),
+                            "type": "polygon",
+                            "description": str(rect.get('description', ''))
+                        }
+                    })
+    
+    # Structure GeoJSON strictement conforme
+    return {
         "type": "FeatureCollection",
-        "name": "SDVFR_Export",
-        "crs": {
-            "type": "name",
-            "properties": {
-                "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
-            }
-        },
         "features": features
     }
-    
-    return geojson
 
 def convert_geojson_minimal(geojson_data, name="minimal_tiles"):
     """Convertit GeoJSON en MBTiles avec paramètres ultra-minimaux"""
@@ -1253,12 +1197,9 @@ with tab1:
                             )
                             st.success(f"✅ GeoJSON généré avec {len(geojson_data['features'])} objets!")
                             
-                            # Debug: afficher le contenu pour les lignes
-                            if st.session_state.lines_data:
-                                with st.expander("🔍 Debug GeoJSON (lignes)"):
-                                    for feature in geojson_data['features']:
-                                        if feature['geometry']['type'] == 'LineString':
-                                            st.json(feature)
+                            # Debug: afficher le contenu GeoJSON
+                            with st.expander("🔍 Debug GeoJSON"):
+                                st.json(geojson_data)
                             
                     except Exception as e:
                         st.error(f"❌ Erreur lors de la génération GeoJSON: {str(e)}")
