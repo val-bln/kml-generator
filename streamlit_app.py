@@ -614,14 +614,13 @@ def generate_geojson():
                     },
                     "properties": {
                         "name": str(point['name']),
-                        "type": "point",
                         "description": str(point.get('description', ''))
                     }
                 })
         except (ValueError, TypeError, KeyError):
             continue
     
-    # Lignes
+    # Lignes - utiliser MultiLineString pour Tippecanoe
     for line in st.session_state.lines_data:
         if 'points' in line and line['points'] and len(line['points']) >= 2:
             coordinates = []
@@ -637,42 +636,18 @@ def generate_geojson():
                 features.append({
                     "type": "Feature",
                     "geometry": {
-                        "type": "LineString",
-                        "coordinates": coordinates
+                        "type": "MultiLineString",
+                        "coordinates": [coordinates]
                     },
                     "properties": {
                         "name": str(line['name']),
-                        "type": "line",
                         "description": str(line.get('description', ''))
                     }
                 })
     
-    # Cercles - représentés comme Point avec propriété radius
+    # Cercles - représentés comme Polygon avec propriétés étendues
     for circle in st.session_state.circles_data:
-        if circle.get('type') == 'Cercle' and 'center_lat' in circle and 'center_lon' in circle:
-            try:
-                lon, lat = float(circle['center_lon']), float(circle['center_lat'])
-                radius_m = circle['radius_km'] * 1000  # Convertir en mètres
-                
-                if -180 <= lon <= 180 and -90 <= lat <= 90:
-                    features.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [lon, lat]
-                        },
-                        "properties": {
-                            "name": str(circle['name']),
-                            "type": "circle",
-                            "radius": int(radius_m),
-                            "description": str(circle.get('description', ''))
-                        }
-                    })
-            except (ValueError, TypeError, KeyError):
-                continue
-        
-        # Arcs et cercles avec points - comme Polygon
-        elif 'points' in circle and circle['points'] and len(circle['points']) >= 3:
+        if 'points' in circle and circle['points'] and len(circle['points']) >= 3:
             coordinates = []
             for coord in circle['points']:
                 try:
@@ -688,16 +663,29 @@ def generate_geojson():
                     coordinates.append(coordinates[0])
                 
                 if len(coordinates) >= 4:
+                    # Calculer le rayon et l'unité pour les propriétés
+                    radius_val = circle['radius_km']
+                    radius_unit = "kilometers" if circle['radius_unit'] == 'mètres' else "nautical_miles"
+                    if circle['radius_unit'] == 'nautiques':
+                        radius_val = radius_val / 1.852
+                        radius_unit = "nautical_miles"
+                    elif circle['radius_unit'] == 'mètres':
+                        radius_val = radius_val * 1000
+                        radius_unit = "meters"
+                    
                     features.append({
                         "type": "Feature",
+                        "properties": {
+                            "name": str(circle['name']),
+                            "type": "circle",
+                            "radius": int(radius_val) if radius_unit == "meters" else radius_val,
+                            "radius_unit": radius_unit,
+                            "center_lon": float(circle['center_lon']),
+                            "center_lat": float(circle['center_lat'])
+                        },
                         "geometry": {
                             "type": "Polygon",
                             "coordinates": [coordinates]
-                        },
-                        "properties": {
-                            "name": str(circle['name']),
-                            "type": "polygon",
-                            "description": str(circle.get('description', ''))
                         }
                     })
     
@@ -727,7 +715,6 @@ def generate_geojson():
                         },
                         "properties": {
                             "name": str(rect['name']),
-                            "type": "polygon",
                             "description": str(rect.get('description', ''))
                         }
                     })
