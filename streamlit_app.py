@@ -1253,6 +1253,13 @@ with tab1:
                             )
                             st.success(f"✅ GeoJSON généré avec {len(geojson_data['features'])} objets!")
                             
+                            # Debug: afficher le contenu pour les lignes
+                            if st.session_state.lines_data:
+                                with st.expander("🔍 Debug GeoJSON (lignes)"):
+                                    for feature in geojson_data['features']:
+                                        if feature['geometry']['type'] == 'LineString':
+                                            st.json(feature)
+                            
                     except Exception as e:
                         st.error(f"❌ Erreur lors de la génération GeoJSON: {str(e)}")
             
