@@ -668,7 +668,7 @@ def generate_geojson():
                     }
                 })
     
-    # Cercles et arcs - gestion différenciée
+    # Cercles et arcs - gestion stricte pour SDVFR Next
     for circle in st.session_state.circles_data:
         if 'points' in circle and circle['points']:
             valid_coords = validate_coordinates(circle['points'])
@@ -683,7 +683,7 @@ def generate_geojson():
                         "properties": {
                             "name": str(circle['name']),
                             "description": str(circle.get('description', '')),
-                            "type": "arc",
+                            "type": "line",
                             "stroke": stroke_color,
                             "stroke-width": max(1, int(circle.get('width', 2))),
                             "stroke-opacity": 1.0
@@ -694,36 +694,40 @@ def generate_geojson():
                         }
                     })
                 else:
-                    # Cercle/arc fermé = Polygon
-                    # Assurer fermeture du polygone
+                    # Cercle/arc fermé = Polygon avec validation stricte
                     if len(valid_coords) >= 3:
-                        if valid_coords[0] != valid_coords[-1]:
-                            valid_coords.append(valid_coords[0])
+                        # Nettoyer les coordonnées dupliquées consécutives
+                        clean_coords = [valid_coords[0]]
+                        for coord in valid_coords[1:]:
+                            if coord != clean_coords[-1]:
+                                clean_coords.append(coord)
+                        
+                        # Assurer fermeture stricte
+                        if clean_coords[0] != clean_coords[-1]:
+                            clean_coords.append(clean_coords[0])
                         
                         # Vérifier minimum 4 points pour un polygone valide
-                        if len(valid_coords) >= 4:
+                        if len(clean_coords) >= 4:
                             properties = {
                                 "name": str(circle['name']),
                                 "description": str(circle.get('description', '')),
-                                "type": "circle",
+                                "type": "polygon",
                                 "stroke": stroke_color,
                                 "stroke-width": max(1, int(circle.get('width', 2))),
-                                "stroke-opacity": 1.0
+                                "stroke-opacity": 1.0,
+                                "fill-opacity": 0.3 if circle.get('fill', False) else 0.0
                             }
                             
                             # Ajouter remplissage si demandé
                             if circle.get('fill', False):
                                 properties["fill"] = stroke_color
-                                properties["fill-opacity"] = 0.3
-                            else:
-                                properties["fill-opacity"] = 0.0
                             
                             features.append({
                                 "type": "Feature",
                                 "properties": properties,
                                 "geometry": {
                                     "type": "Polygon",
-                                    "coordinates": [valid_coords]
+                                    "coordinates": [clean_coords]
                                 }
                             })
     
@@ -742,7 +746,7 @@ def generate_geojson():
                     stroke_color = color_map.get(rect.get('color', 'rouge'), '#FF0000')
                     
                     # Déterminer le type d'objet
-                    obj_type = "rectangle" if 'length_km' in rect else "polygon"
+                    obj_type = "polygon"
                     
                     properties = {
                         "name": str(rect['name']),
