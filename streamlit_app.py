@@ -837,10 +837,10 @@ def group_objects_by_color():
     return colors_data
 
 def generate_geojson_for_tippecanoe():
-    """Génère un GeoJSON pour Tippecanoe - version simple compatible SD VFR Next"""
+    """Génère un GeoJSON pour Tippecanoe - fichier unique avec points convertis en cercles"""
     features = []
     
-    # Points convertis en cercles de 25m de rayon
+    # Points convertis en cercles de 25m de rayon pour SD VFR Next
     for point in st.session_state.points_data:
         try:
             lat, lon = float(point['lat']), float(point['lon'])
