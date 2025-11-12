@@ -120,6 +120,8 @@ if 'sdvfr_structure' not in st.session_state:
     st.session_state.sdvfr_structure = None
 if 'reference_kml_data' not in st.session_state:
     st.session_state.reference_kml_data = None
+if 'generated_mbtiles' not in st.session_state:
+    st.session_state.generated_mbtiles = {}
 
 # Constantes WGS84
 WGS84_A = 6378137.0  # Demi-grand axe (m)
@@ -1398,27 +1400,39 @@ with tab1:
                                     if not colors_data:
                                         st.warning("⚠️ Aucune donnée à convertir")
                                     else:
-                                        st.success(f"✅ {len(colors_data)} fichiers MBTiles générés par couleur!")
+                                        # Générer tous les fichiers et les stocker
+                                        st.session_state.generated_mbtiles = {}
                                         
                                         for color, geojson_data in colors_data.items():
                                             if geojson_data['features']:
                                                 mbtiles_data = convert_geojson_minimal(geojson_data, name=f"{clean_filename}_{color}")
-                                                
-                                                st.download_button(
-                                                    label=f"💾 {color.capitalize()} ({len(geojson_data['features'])} objets)",
-                                                    data=mbtiles_data,
-                                                    file_name=f"{clean_filename}_{color}.mbtiles",
-                                                    mime="application/octet-stream",
-                                                    use_container_width=True,
-                                                    key=f"download_{color}"
-                                                )
+                                                st.session_state.generated_mbtiles[color] = {
+                                                    'data': mbtiles_data,
+                                                    'filename': f"{clean_filename}_{color}.mbtiles",
+                                                    'count': len(geojson_data['features'])
+                                                }
                                         
+                                        st.success(f"✅ {len(st.session_state.generated_mbtiles)} fichiers MBTiles générés par couleur!")
                                         st.info("💡 Importez chaque fichier séparément dans SD VFR Next")
+                                        
                                 except Exception as e:
                                     st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
                                     st.info("💡 Vérifiez que l'API de conversion est accessible")
-            
-
+                    
+                    # Afficher les boutons de téléchargement si des fichiers sont générés
+                    if st.session_state.generated_mbtiles:
+                        st.markdown("---")
+                        st.subheader("📥 Télécharger les fichiers MBTiles")
+                        
+                        for color, file_info in st.session_state.generated_mbtiles.items():
+                            st.download_button(
+                                label=f"💾 {color.capitalize()} ({file_info['count']} objets)",
+                                data=file_info['data'],
+                                file_name=file_info['filename'],
+                                mime="application/octet-stream",
+                                use_container_width=True,
+                                key=f"download_{color}_cached"
+                            )
         else:
             st.info("Aucune donnée à exporter. Créez d'abord des objets.")
             
