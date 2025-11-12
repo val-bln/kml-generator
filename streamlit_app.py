@@ -711,8 +711,35 @@ def generate_geojson():
     }
 
 def generate_geojson_for_tippecanoe():
-    """Génère un GeoJSON pour Tippecanoe sans les points seuls"""
+    """Génère un GeoJSON pour Tippecanoe - convertit les points en cercles de 25m"""
     features = []
+    
+    # Points convertis en cercles de 25m de rayon
+    for point in st.session_state.points_data:
+        try:
+            lat, lon = float(point['lat']), float(point['lon'])
+            if -180 <= lon <= 180 and -90 <= lat <= 90:
+                # Créer un cercle de 25m de rayon autour du point
+                circle_points = calculate_circle_points(lat, lon, 0.025, 36)  # 25m = 0.025km, 36 segments
+                
+                if len(circle_points) >= 3:
+                    # Assurer fermeture du polygone
+                    if circle_points[0] != circle_points[-1]:
+                        circle_points.append(circle_points[0])
+                    
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [circle_points]
+                        },
+                        "properties": {
+                            "name": str(point['name']),
+                            "description": str(point.get('description', ''))
+                        }
+                    })
+        except (ValueError, TypeError, KeyError):
+            continue
     
     # Lignes - utiliser MultiLineString pour Tippecanoe
     for line in st.session_state.lines_data:
@@ -1230,40 +1257,13 @@ with tab1:
                                 use_container_width=True
                             )
                             st.success("✅ MBTiles généré avec succès!")
-                            st.info("💡 Compatible SDVFR Next (sans points)")
+                            st.info("💡 Compatible SDVFR Next (points convertis en cercles de 25m)")
                             
                         except Exception as e:
                             st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
                             st.info("💡 Vérifiez que l'API de conversion est accessible")
             
-            # Paramètres MBTiles
-            with st.expander("⚙️ Paramètres MBTiles"):
-                col_min, col_max = st.columns(2)
-                with col_min:
-                    min_zoom = st.slider("Zoom minimum", 0, 18, 0, key="mbtiles_min_zoom")
-                with col_max:
-                    max_zoom = st.slider("Zoom maximum", 0, 18, 14, key="mbtiles_max_zoom")
-                
-                st.markdown("**🎯 Fidélité de conversion**")
-                preserve_properties = st.checkbox("Préserver toutes les propriétés KML", value=True, key="preserve_props")
-                
-                simplification = st.selectbox(
-                    "Simplification géométrique",
-                    [(0.0, "Aucune (fidélité maximale)"), 
-                     (0.1, "Très faible"), 
-                     (0.5, "Faible"), 
-                     (1.0, "Modérée"), 
-                     (2.0, "Élevée")],
-                    format_func=lambda x: x[1],
-                    key="simplification_select"
-                )[0]
-                
-                st.info(f"📊 Niveaux de zoom: {min_zoom} à {max_zoom}")
-                if simplification == 0.0:
-                    st.success("🎯 Configuration pour fidélité maximale")
-                else:
-                    st.warning(f"⚠️ Simplification activée: {simplification}")
-                st.caption("💡 Fidélité maximale = fichier plus volumineux mais plus précis")
+
         else:
             st.info("Aucune donnée à exporter. Créez d'abord des objets.")
             
