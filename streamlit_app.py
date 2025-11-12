@@ -710,16 +710,135 @@ def generate_geojson():
         "features": features
     }
 
-def generate_geojson_for_tippecanoe():
-    """Génère un GeoJSON pour Tippecanoe avec propriétés de style standardisées"""
-    features = []
+def group_objects_by_color():
+    """Groupe les objets par couleur pour créer des MBTiles séparés"""
+    colors_data = {}
     
-    # Mapping couleurs vers codes hex pour SD VFR Next
-    color_to_hex = {
-        "rouge": "#FF0000", "vert": "#00FF00", "bleu": "#0000FF",
-        "jaune": "#FFFF00", "orange": "#FFA500", "cyan": "#00FFFF",
-        "magenta": "#FF00FF", "noir": "#000000", "blanc": "#FFFFFF"
-    }
+    # Fonction pour ajouter un objet à une couleur
+    def add_to_color(color, feature):
+        if color not in colors_data:
+            colors_data[color] = {"type": "FeatureCollection", "features": []}
+        colors_data[color]["features"].append(feature)
+    
+    # Points convertis en cercles de 25m
+    for point in st.session_state.points_data:
+        try:
+            lat, lon = float(point['lat']), float(point['lon'])
+            if -180 <= lon <= 180 and -90 <= lat <= 90:
+                circle_points = calculate_circle_points(lat, lon, 0.025, 36, is_arc=False)
+                
+                if len(circle_points) >= 3:
+                    if circle_points[0] != circle_points[-1]:
+                        circle_points.append(circle_points[0])
+                    
+                    feature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [circle_points]
+                        },
+                        "properties": {
+                            "name": str(point['name']),
+                            "description": str(point.get('description', ''))
+                        }
+                    }
+                    add_to_color("rouge", feature)  # Points par défaut en rouge
+        except (ValueError, TypeError, KeyError):
+            continue
+    
+    # Lignes groupées par couleur
+    for line in st.session_state.lines_data:
+        if 'points' in line and line['points'] and len(line['points']) >= 2:
+            coordinates = []
+            for coord in line['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 2:
+                feature = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "MultiLineString",
+                        "coordinates": [coordinates]
+                    },
+                    "properties": {
+                        "name": str(line['name']),
+                        "description": str(line.get('description', ''))
+                    }
+                }
+                color = line.get('color', 'rouge')
+                add_to_color(color, feature)
+    
+    # Cercles groupés par couleur
+    for circle in st.session_state.circles_data:
+        if 'points' in circle and circle['points'] and len(circle['points']) >= 3:
+            coordinates = []
+            for coord in circle['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    feature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(circle['name'])
+                        }
+                    }
+                    color = circle.get('color', 'rouge')
+                    add_to_color(color, feature)
+    
+    # Polygones groupés par couleur
+    for rect in st.session_state.rectangles_data:
+        if 'points' in rect and rect['points'] and len(rect['points']) >= 3:
+            coordinates = []
+            for coord in rect['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    feature = {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(rect['name']),
+                            "description": str(rect.get('description', ''))
+                        }
+                    }
+                    color = rect.get('color', 'rouge')
+                    add_to_color(color, feature)
+    
+    return colors_data
+
+def generate_geojson_for_tippecanoe():
+    """Génère un GeoJSON pour Tippecanoe - version simple compatible SD VFR Next"""
+    features = []
     
     # Points convertis en cercles de 25m de rayon
     for point in st.session_state.points_data:
@@ -740,18 +859,13 @@ def generate_geojson_for_tippecanoe():
                         },
                         "properties": {
                             "name": str(point['name']),
-                            "description": str(point.get('description', '')),
-                            "type": "point",
-                            "stroke": "#FF0000",
-                            "stroke-width": 2,
-                            "fill": "#FF0000",
-                            "fill-opacity": 0.3
+                            "description": str(point.get('description', ''))
                         }
                     })
         except (ValueError, TypeError, KeyError):
             continue
     
-    # Lignes avec propriétés de style
+    # Lignes - utiliser MultiLineString pour Tippecanoe
     for line in st.session_state.lines_data:
         if 'points' in line and line['points'] and len(line['points']) >= 2:
             coordinates = []
@@ -764,24 +878,19 @@ def generate_geojson_for_tippecanoe():
                     continue
             
             if len(coordinates) >= 2:
-                line_color = color_to_hex.get(line.get('color', 'rouge'), '#FF0000')
                 features.append({
                     "type": "Feature",
                     "geometry": {
-                        "type": "LineString",
-                        "coordinates": coordinates
+                        "type": "MultiLineString",
+                        "coordinates": [coordinates]
                     },
                     "properties": {
                         "name": str(line['name']),
-                        "description": str(line.get('description', '')),
-                        "type": "line",
-                        "stroke": line_color,
-                        "stroke-width": line.get('width', 2),
-                        "stroke-opacity": 1.0
+                        "description": str(line.get('description', ''))
                     }
                 })
     
-    # Cercles avec propriétés de style
+    # Cercles - représentés comme Polygon simple
     for circle in st.session_state.circles_data:
         if 'points' in circle and circle['points'] and len(circle['points']) >= 3:
             coordinates = []
@@ -798,7 +907,6 @@ def generate_geojson_for_tippecanoe():
                     coordinates.append(coordinates[0])
                 
                 if len(coordinates) >= 4:
-                    circle_color = color_to_hex.get(circle.get('color', 'rouge'), '#FF0000')
                     features.append({
                         "type": "Feature",
                         "geometry": {
@@ -806,16 +914,11 @@ def generate_geojson_for_tippecanoe():
                             "coordinates": [coordinates]
                         },
                         "properties": {
-                            "name": str(circle['name']),
-                            "type": "circle",
-                            "stroke": circle_color,
-                            "stroke-width": circle.get('width', 2),
-                            "fill": circle_color if circle.get('fill', False) else "none",
-                            "fill-opacity": 0.3 if circle.get('fill', False) else 0
+                            "name": str(circle['name'])
                         }
                     })
     
-    # Polygones et rectangles avec propriétés de style
+    # Polygones et rectangles
     for rect in st.session_state.rectangles_data:
         if 'points' in rect and rect['points'] and len(rect['points']) >= 3:
             coordinates = []
@@ -832,7 +935,6 @@ def generate_geojson_for_tippecanoe():
                     coordinates.append(coordinates[0])
                 
                 if len(coordinates) >= 4:
-                    rect_color = color_to_hex.get(rect.get('color', 'rouge'), '#FF0000')
                     features.append({
                         "type": "Feature",
                         "geometry": {
@@ -841,12 +943,7 @@ def generate_geojson_for_tippecanoe():
                         },
                         "properties": {
                             "name": str(rect['name']),
-                            "description": str(rect.get('description', '')),
-                            "type": "polygon",
-                            "stroke": rect_color,
-                            "stroke-width": rect.get('width', 2),
-                            "fill": rect_color if rect.get('fill', False) else "none",
-                            "fill-opacity": 0.3 if rect.get('fill', False) else 0
+                            "description": str(rect.get('description', ''))
                         }
                     })
     
@@ -855,82 +952,7 @@ def generate_geojson_for_tippecanoe():
         "features": features
     }
 
-def generate_mapbox_style():
-    """Génère un style MapBox GL JS pour SD VFR Next"""
-    style = {
-        "version": 8,
-        "name": "SDVFR Style",
-        "sources": {
-            "sdvfr-data": {
-                "type": "vector",
-                "url": "mbtiles://./data.mbtiles"
-            }
-        },
-        "layers": [
-            {
-                "id": "points",
-                "type": "fill",
-                "source": "sdvfr-data",
-                "source-layer": "data",
-                "filter": ["==", ["get", "type"], "point"],
-                "paint": {
-                    "fill-color": ["get", "fill"],
-                    "fill-opacity": ["get", "fill-opacity"]
-                }
-            },
-            {
-                "id": "points-stroke",
-                "type": "line",
-                "source": "sdvfr-data",
-                "source-layer": "data",
-                "filter": ["==", ["get", "type"], "point"],
-                "paint": {
-                    "line-color": ["get", "stroke"],
-                    "line-width": ["get", "stroke-width"]
-                }
-            },
-            {
-                "id": "lines",
-                "type": "line",
-                "source": "sdvfr-data",
-                "source-layer": "data",
-                "filter": ["==", ["get", "type"], "line"],
-                "paint": {
-                    "line-color": ["get", "stroke"],
-                    "line-width": ["get", "stroke-width"],
-                    "line-opacity": ["get", "stroke-opacity"]
-                }
-            },
-            {
-                "id": "polygons-fill",
-                "type": "fill",
-                "source": "sdvfr-data",
-                "source-layer": "data",
-                "filter": ["in", ["get", "type"], ["literal", ["circle", "polygon"]]],
-                "paint": {
-                    "fill-color": [
-                        "case",
-                        ["!=", ["get", "fill"], "none"],
-                        ["get", "fill"],
-                        "transparent"
-                    ],
-                    "fill-opacity": ["get", "fill-opacity"]
-                }
-            },
-            {
-                "id": "polygons-stroke",
-                "type": "line",
-                "source": "sdvfr-data",
-                "source-layer": "data",
-                "filter": ["in", ["get", "type"], ["literal", ["circle", "polygon"]]],
-                "paint": {
-                    "line-color": ["get", "stroke"],
-                    "line-width": ["get", "stroke-width"]
-                }
-            }
-        ]
-    }
-    return style
+
 
 def convert_geojson_minimal(geojson_data, name="minimal_tiles"):
     """Convertit GeoJSON en MBTiles avec paramètres ultra-minimaux"""
@@ -1335,73 +1357,49 @@ with tab1:
                 if not is_api_configured():
                     st.warning("⚠️ API non configurée")
                     st.button("🔧 MBTiles", disabled=True, use_container_width=True)
-                elif st.button("🔧 MBTiles", use_container_width=True):
+                elif st.button("🔧 MBTiles par couleur", use_container_width=True):
                     clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
                     
-                    with st.spinner("Conversion en cours via Tippecanoe..."):
+                    with st.spinner("Génération MBTiles séparés par couleur..."):
                         try:
-                            # Générer le GeoJSON optimisé pour Tippecanoe (sans points)
-                            geojson_data = generate_geojson_for_tippecanoe()
+                            # Grouper les objets par couleur
+                            colors_data = group_objects_by_color()
                             
-                            # Vérifier que le GeoJSON contient des données
-                            if not geojson_data['features']:
+                            if not colors_data:
                                 st.warning("⚠️ Aucune donnée à convertir")
                             else:
-                            
-                            # Utiliser les paramètres minimaux qui fonctionnent avec SDVFR Next
-                                mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
-                            
-                            col_mbt, col_style = st.columns(2)
-                            
-                            with col_mbt:
-                                st.download_button(
-                                    label="💾 Télécharger MBTiles",
-                                    data=mbtiles_data,
-                                    file_name=f"{clean_filename}.mbtiles",
-                                    mime="application/octet-stream",
-                                    use_container_width=True
-                                )
-                            
-                            with col_style:
-                                # Générer le fichier de style MapBox
-                                style_data = generate_mapbox_style()
-                                style_json = json.dumps(style_data, indent=2)
+                                st.success(f"✅ {len(colors_data)} fichiers MBTiles générés par couleur!")
                                 
-                                st.download_button(
-                                    label="🎨 Style MapBox",
-                                    data=style_json,
-                                    file_name=f"{clean_filename}_style.json",
-                                    mime="application/json",
-                                    use_container_width=True
-                                )
-                            
-                            st.success("✅ MBTiles généré avec succès!")
-                            st.info("💡 Compatible SDVFR Next (points convertis en cercles de 25m)")
-                            st.info("🎨 Téléchargez aussi le fichier de style pour conserver les couleurs dans SD VFR Next")
-                            
-                            # Aide pour le style
-                            with st.expander("🎨 Comment utiliser le style dans SD VFR Next ?"):
-                                st.markdown("""
-                                **Pourquoi tout est magenta dans SD VFR Next ?**
+                                # Créer un bouton de téléchargement pour chaque couleur
+                                for color, geojson_data in colors_data.items():
+                                    if geojson_data['features']:
+                                        mbtiles_data = convert_geojson_minimal(geojson_data, name=f"{clean_filename}_{color}")
+                                        
+                                        st.download_button(
+                                            label=f"💾 {color.capitalize()} ({len(geojson_data['features'])} objets)",
+                                            data=mbtiles_data,
+                                            file_name=f"{clean_filename}_{color}.mbtiles",
+                                            mime="application/octet-stream",
+                                            use_container_width=True,
+                                            key=f"download_{color}"
+                                        )
                                 
-                                Tippecanoe convertit les couleurs en simples attributs de données. SD VFR Next ne sait pas les interpréter automatiquement.
+                                st.info("💡 Importez chaque fichier séparément dans SD VFR Next et configurez la couleur correspondante")
                                 
-                                **Solutions :**
-                                
-                                1. **Fichier de style (Recommandé)** :
-                                   - Téléchargez le fichier `_style.json`
-                                   - Importez-le comme style personnalisé dans SD VFR Next
-                                   - Appliquez-le à votre couche
-                                
-                                2. **Configuration manuelle** :
-                                   - Accédez aux paramètres de couche dans SD VFR Next
-                                   - Utilisez les propriétés `stroke` (couleur) et `stroke-width` (épaisseur)
-                                   - Couleurs en format hex : rouge = #FF0000, vert = #00FF00, etc.
-                                
-                                3. **Propriétés standardisées** :
-                                   - Le GeoJSON contient maintenant `stroke`, `fill`, `stroke-width`
-                                   - Compatible avec les styles MapBox GL JS
-                                """)
+                                # Guide d'utilisation
+                                with st.expander("📋 Comment utiliser dans SD VFR Next ?"):
+                                    st.markdown("""
+                                    **Étapes :**
+                                    
+                                    1. **Téléchargez** tous les fichiers MBTiles (un par couleur)
+                                    2. **Dans SD VFR Next** :
+                                       - Importez `nom_rouge.mbtiles` → Configurez en rouge
+                                       - Importez `nom_vert.mbtiles` → Configurez en vert
+                                       - Importez `nom_bleu.mbtiles` → Configurez en bleu
+                                       - etc.
+                                    
+                                    **Avantage :** Chaque couleur = une couche séparée = style indépendant !
+                                    """)
                             
                         except Exception as e:
                             st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
@@ -1415,33 +1413,25 @@ with tab1:
         st.info("💡 **Formats disponibles :**")
         st.caption("• **KML :** Compatible Google Earth et SDVFR classique")
         st.caption("• **GeoJSON :** Format standard pour applications web et Tippecanoe")
-        st.caption("• **MBTiles :** Tuiles vectorielles pour SDVFR Next (lignes et polygones uniquement)")
-        st.caption("• **Style MapBox :** Fichier JSON pour conserver les couleurs dans SDVFR Next")
+        st.caption("• **MBTiles par couleur :** Fichiers séparés par couleur pour SD VFR Next (une couche = une couleur)")
         
-        # Section d'aide générale sur le style
-        with st.expander("🎨 Problème de style magenta dans SD VFR Next ?"):
+        # Section d'aide simplifiée
+        with st.expander("⚠️ Problème de couleur magenta dans SD VFR Next ?"):
             st.markdown("""
-            **Le problème :** Quand vous importez des MBTiles dans SD VFR Next, tout apparaît en magenta.
+            **Pourquoi tout est magenta ?**
             
-            **La cause :** Tippecanoe ne transfère pas automatiquement le style visuel. Les couleurs deviennent de simples attributs.
+            C'est normal ! Tippecanoe (qui crée les MBTiles) ne transfère pas les couleurs.
             
-            **Les solutions :**
+            **Solutions :**
             
-            🎨 **Solution 1 - Fichier de style (Recommandé)**
-            - Téléchargez le fichier `_style.json` avec vos MBTiles
-            - Importez-le comme style personnalisé dans SD VFR Next
+            📄 **Recommandé : Utilisez le KML** pour SDVFR classique (conserve les couleurs)
             
-            ⚙️ **Solution 2 - Configuration manuelle**
-            - Dans SD VFR Next, accédez aux paramètres de la couche
-            - Configurez le style avec les propriétés `stroke` et `stroke-width`
+            ⚙️ **Pour SD VFR Next :** Configuration manuelle dans l'app
+            - Accédez aux paramètres de la couche importée
+            - Créez des règles de style basées sur les noms d'objets
+            - Exemple : "Si nom contient 'rouge' alors couleur = rouge"
             
-            📊 **Propriétés disponibles dans vos données :**
-            - `stroke` : Couleur du contour (ex: #FF0000 pour rouge)
-            - `stroke-width` : Épaisseur du trait
-            - `fill` : Couleur de remplissage
-            - `fill-opacity` : Transparence du remplissage
-            
-            📄 **Guide complet :** Consultez le fichier `GUIDE_STYLE_SDVFR.md` pour plus de détails
+            **Note :** C'est une limitation technique des MBTiles, pas un bug de cet outil.
             """)
     
     # Aperçu des données
@@ -2454,50 +2444,46 @@ with tab5:
 
 # ONGLET DIVERS  
 with tab6:
-    st.subheader("🎨 Guide des styles pour SD VFR Next")
+    st.subheader("⚠️ Problème des couleurs dans SD VFR Next")
     
     st.markdown("""
-    ### Pourquoi mes objets sont magenta dans SD VFR Next ?
+    ### Pourquoi tout est magenta dans SD VFR Next ?
     
-    **Le problème :** Tippecanoe (l'outil qui crée les MBTiles) convertit les géométries et conserve 
-    les propriétés de style comme simples attributs, mais SD VFR Next ne sait pas les interpréter automatiquement.
-    
-    **La solution :** Utilisez le fichier de style MapBox GL JS généré automatiquement avec vos MBTiles.
+    **C'est normal !** Tippecanoe (qui crée les MBTiles) ne peut pas transférer les informations de style.
+    Les MBTiles ne contiennent que les géométries, pas les couleurs.
     """)
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("""
-        #### 🟢 Ce qui fonctionne maintenant :
-        - ✅ Couleurs standardisées (rouge, vert, bleu, etc.)
-        - ✅ Épaisseurs de trait personnalisées
-        - ✅ Remplissage des polygones
-        - ✅ Transparence configurable
-        - ✅ Fichier de style MapBox automatique
+        #### 🟢 Solutions qui fonctionnent :
+        - ✅ **MBTiles par couleur** (fichiers séparés)
+        - ✅ **KML** (si SDVFR classique disponible)
+        - ✅ **Une couche = une couleur** dans SD VFR Next
+        - ✅ **Performance + Style** optimaux
         """)
     
     with col2:
         st.markdown("""
-        #### 🔴 Correspondance des couleurs :
-        - **Rouge** → #FF0000
-        - **Vert** → #00FF00  
-        - **Bleu** → #0000FF
-        - **Jaune** → #FFFF00
-        - **Orange** → #FFA500
+        #### 🔴 Ce qui ne fonctionne PAS :
+        - ❌ Fichiers de style externes
+        - ❌ Propriétés de couleur dans MBTiles
+        - ❌ Import automatique des couleurs
+        - ❌ Solutions "magiques"
         """)
     
     st.markdown("""
-    ### Comment utiliser dans SD VFR Next :
+    ### Solutions pour SD VFR Next :
     
-    1. **Générez vos MBTiles** avec cet outil
-    2. **Téléchargez les 2 fichiers** : `.mbtiles` + `_style.json`
-    3. **Dans SD VFR Next** :
-       - Importez le fichier `.mbtiles`
-       - Importez le fichier `_style.json` comme style personnalisé
-       - Appliquez le style à votre couche
+    **Problème :** SD VFR Next applique le style à l'ensemble du MBTiles, pas individuellement.
     
-    **Alternative :** Configuration manuelle dans SD VFR Next en utilisant les propriétés `stroke`, `stroke-width`, `fill`, etc.
+    **Solution :** **MBTiles séparés par couleur**
+    - Un fichier MBTiles par couleur (rouge, vert, bleu, etc.)
+    - Chaque fichier = une couche dans SD VFR Next
+    - Configurez la couleur de chaque couche séparément
+    
+    **Avantage :** Style parfait + Performance optimale !
     """)
     
     st.markdown("---")
