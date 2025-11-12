@@ -1256,11 +1256,13 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📁 Import / Export KML", 
 
 # ONGLET GESTION KML
 with tab1:
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("📤 Importer un fichier KML")
+    # Section Import
+    with st.container():
+        st.markdown("""
+        <div style="background-color: #f0f8ff; padding: 20px; border-radius: 10px; border-left: 5px solid #4CAF50; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #2E7D32;">📤 Import de fichiers KML</h3>
+        </div>
+        """, unsafe_allow_html=True)
         
         uploaded_file = st.file_uploader("Sélectionnez un fichier KML", type=['kml'], key="main_upload")
         
@@ -1268,49 +1270,83 @@ with tab1:
             kml_content = uploaded_file.read().decode('utf-8')
             points, lines, polygons = parse_kml_file(kml_content)
             
-            st.write(f"**Contenu détecté:**")
-            st.write(f"- 📍 {len(points)} points")
-            st.write(f"- 📏 {len(lines)} lignes")
-            st.write(f"- 🔷 {len(polygons)} polygones")
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown("**📊 Contenu détecté:**")
+                metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                with metrics_col1:
+                    st.metric("📍 Points", len(points))
+                with metrics_col2:
+                    st.metric("📏 Lignes", len(lines))
+                with metrics_col3:
+                    st.metric("🔷 Polygones", len(polygons))
+                with metrics_col4:
+                    st.metric("📊 Total", len(points + lines + polygons))
             
-            if points or lines or polygons:
-                import_mode = st.radio(
-                    "Mode d'importation:",
-                    ["Ajouter aux données existantes", "Remplacer toutes les données"]
-                )
-                
-                if st.button("✅ Importer le KML", key="main_import"):
-                    if import_mode == "Remplacer toutes les données":
-                        st.session_state.points_data = []
-                        st.session_state.lines_data = []
-                        st.session_state.circles_data = []
-                        st.session_state.rectangles_data = []
+            with col2:
+                if points or lines or polygons:
+                    import_mode = st.radio(
+                        "Mode d'importation:",
+                        ["Ajouter aux données existantes", "Remplacer toutes les données"]
+                    )
                     
-                    load_kml_data(points, lines, polygons)
-                    st.success(f"KML importé avec succès! ({len(points + lines + polygons)} objets)")
-                    st.rerun()
-            else:
-                st.warning("Aucun objet valide trouvé dans le fichier KML")
+                    if st.button("✅ Importer le KML", key="main_import", use_container_width=True):
+                        if import_mode == "Remplacer toutes les données":
+                            st.session_state.points_data = []
+                            st.session_state.lines_data = []
+                            st.session_state.circles_data = []
+                            st.session_state.rectangles_data = []
+                        
+                        load_kml_data(points, lines, polygons)
+                        st.success(f"KML importé avec succès! ({len(points + lines + polygons)} objets)")
+                        st.rerun()
+                else:
+                    st.warning("Aucun objet valide trouvé dans le fichier KML")
     
-    with col2:
-        st.subheader("📥 Exporter les données")
+    st.markdown("---")
+    
+    # Section Export
+    total_objects = len(st.session_state.points_data) + len(st.session_state.lines_data) + len(st.session_state.circles_data) + len(st.session_state.rectangles_data)
+    
+    if total_objects > 0:
+        with st.container():
+            st.markdown("""
+            <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; border-left: 5px solid #FF9800; margin-bottom: 20px;">
+                <h3 style="margin-top: 0; color: #E65100;">📥 Export des données</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Résumé des données
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.markdown("**📊 Données actuelles:**")
+                metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                with metrics_col1:
+                    st.metric("📍 Points", len(st.session_state.points_data))
+                with metrics_col2:
+                    st.metric("📏 Lignes", len(st.session_state.lines_data))
+                with metrics_col3:
+                    st.metric("⭕ Cercles", len(st.session_state.circles_data))
+                with metrics_col4:
+                    st.metric("🔷 Polygones", len(st.session_state.rectangles_data))
+            
+            with col2:
+                filename = st.text_input("Nom du fichier", value="export_sdvfr", placeholder="Nom sans extension")
         
-        total_objects = len(st.session_state.points_data) + len(st.session_state.lines_data) + len(st.session_state.circles_data) + len(st.session_state.rectangles_data)
+        # Formats d'export en blocs séparés
+        col_kml, col_geojson, col_mbtiles = st.columns(3)
         
-        if total_objects > 0:
-            st.write(f"**Données actuelles:**")
-            st.write(f"- 📍 {len(st.session_state.points_data)} points")
-            st.write(f"- 📏 {len(st.session_state.lines_data)} lignes")
-            st.write(f"- ⭕ {len(st.session_state.circles_data)} cercles/arcs")
-            st.write(f"- 🔷 {len(st.session_state.rectangles_data)} polygones")
-            
-            filename = st.text_input("Nom du fichier KML", value="export_sdvfr", placeholder="Nom sans extension")
-            
-            # Boutons d'export en 3 colonnes
-            col_kml, col_geojson, col_mbtiles = st.columns(3)
-            
-            with col_kml:
-                if st.button("📥 KML", use_container_width=True):
+        # Bloc KML
+        with col_kml:
+            with st.container():
+                st.markdown("""
+                <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #2E7D32;">📄 Format KML</h4>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">Google Earth & SDVFR</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("📥 Générer KML", use_container_width=True, key="export_kml"):
                     clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
                     
                     kml = generate_kml()
@@ -1322,20 +1358,27 @@ with tab1:
                         mime="application/vnd.google-earth.kml+xml",
                         use_container_width=True
                     )
-            
-            with col_geojson:
-                if st.button("🗺️ GeoJSON", use_container_width=True):
+                    st.success("✅ KML généré!")
+        
+        # Bloc GeoJSON
+        with col_geojson:
+            with st.container():
+                st.markdown("""
+                <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #1976D2;">🗺️ Format GeoJSON</h4>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">Applications web</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("🗺️ Générer GeoJSON", use_container_width=True, key="export_geojson"):
                     clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
                     
                     try:
-                        # Générer le GeoJSON optimisé
                         geojson_data = generate_geojson()
                         
-                        # Vérifier que le GeoJSON contient des données
                         if not geojson_data['features']:
                             st.warning("⚠️ Aucune donnée à convertir")
                         else:
-                            # Convertir en JSON formaté
                             geojson_str = json.dumps(geojson_data, indent=2, ensure_ascii=False)
                             
                             st.download_button(
@@ -1345,38 +1388,42 @@ with tab1:
                                 mime="application/geo+json",
                                 use_container_width=True
                             )
-                            st.success(f"✅ GeoJSON généré avec {len(geojson_data['features'])} objets!")
-                            
-                            # Debug: afficher le contenu GeoJSON
-                            with st.expander("🔍 Debug GeoJSON"):
-                                st.json(geojson_data)
+                            st.success(f"✅ GeoJSON généré! ({len(geojson_data['features'])} objets)")
                             
                     except Exception as e:
-                        st.error(f"❌ Erreur lors de la génération GeoJSON: {str(e)}")
-            
-            with col_mbtiles:
-                # Vérifier si l'API est configurée
+                        st.error(f"❌ Erreur: {str(e)}")
+        
+        # Bloc MBTiles
+        with col_mbtiles:
+            with st.container():
+                st.markdown("""
+                <div style="background-color: #fce4ec; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #C2185B;">🔧 Format MBTiles</h4>
+                    <p style="margin: 5px 0; font-size: 12px; color: #666;">SD VFR Next</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 if not is_api_configured():
                     st.warning("⚠️ API non configurée")
                     st.button("🔧 MBTiles", disabled=True, use_container_width=True)
                 else:
-                    # Choix du mode de génération
                     mode = st.radio(
-                        "Mode de génération MBTiles :",
-                        ["Fichier unique (tout en magenta)", "Fichiers séparés par couleur"],
-                        key="mbtiles_mode"
+                        "Mode:",
+                        ["Fichier unique", "Par couleur"],
+                        key="mbtiles_mode",
+                        help="Unique: tout magenta, Par couleur: fichiers séparés"
                     )
                     
-                    if st.button("🔧 Générer MBTiles", use_container_width=True):
+                    if st.button("🔧 Générer MBTiles", use_container_width=True, key="export_mbtiles"):
                         clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
                         
-                        if mode == "Fichier unique (tout en magenta)":
-                            with st.spinner("Conversion en cours via Tippecanoe..."):
+                        if mode == "Fichier unique":
+                            with st.spinner("Conversion..."):
                                 try:
                                     geojson_data = generate_geojson_for_tippecanoe()
                                     
                                     if not geojson_data['features']:
-                                        st.warning("⚠️ Aucune donnée à convertir")
+                                        st.warning("⚠️ Aucune donnée")
                                     else:
                                         mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
                                         
@@ -1387,20 +1434,19 @@ with tab1:
                                             mime="application/octet-stream",
                                             use_container_width=True
                                         )
-                                        st.success("✅ MBTiles généré avec succès!")
-                                        st.info("💡 Tout apparaîtra en magenta dans SD VFR Next")
+                                        st.success("✅ MBTiles généré!")
+                                        st.info("💡 Tout en magenta dans SD VFR Next")
                                 except Exception as e:
-                                    st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
+                                    st.error(f"❌ Erreur: {str(e)}")
                         
-                        else:  # Fichiers séparés par couleur
-                            with st.spinner("Génération MBTiles séparés par couleur..."):
+                        else:  # Par couleur
+                            with st.spinner("Génération par couleur..."):
                                 try:
                                     colors_data = group_objects_by_color()
                                     
                                     if not colors_data:
-                                        st.warning("⚠️ Aucune donnée à convertir")
+                                        st.warning("⚠️ Aucune donnée")
                                     else:
-                                        # Générer tous les fichiers et les stocker
                                         st.session_state.generated_mbtiles = {}
                                         
                                         for color, geojson_data in colors_data.items():
@@ -1412,54 +1458,41 @@ with tab1:
                                                     'count': len(geojson_data['features'])
                                                 }
                                         
-                                        st.success(f"✅ {len(st.session_state.generated_mbtiles)} fichiers MBTiles générés par couleur!")
-                                        st.info("💡 Importez chaque fichier séparément dans SD VFR Next")
+                                        st.success(f"✅ {len(st.session_state.generated_mbtiles)} fichiers générés!")
                                         
                                 except Exception as e:
-                                    st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
-                                    st.info("💡 Vérifiez que l'API de conversion est accessible")
-                    
-                    # Afficher les boutons de téléchargement si des fichiers sont générés
-                    if st.session_state.generated_mbtiles:
-                        st.markdown("---")
-                        st.subheader("📥 Télécharger les fichiers MBTiles")
-                        
-                        for color, file_info in st.session_state.generated_mbtiles.items():
-                            st.download_button(
-                                label=f"💾 {color.capitalize()} ({file_info['count']} objets)",
-                                data=file_info['data'],
-                                file_name=file_info['filename'],
-                                mime="application/octet-stream",
-                                use_container_width=True,
-                                key=f"download_{color}_cached"
-                            )
-        else:
-            st.info("Aucune donnée à exporter. Créez d'abord des objets.")
-            
-        # Informations sur les formats
-        st.info("💡 **Formats disponibles :**")
-        st.caption("• **KML :** Compatible Google Earth et SDVFR classique")
-        st.caption("• **GeoJSON :** Format standard pour applications web et Tippecanoe")
-        st.caption("• **MBTiles :** Fichier unique ou séparés par couleur pour SD VFR Next")
+                                    st.error(f"❌ Erreur: {str(e)}")
         
-        # Section d'aide simplifiée
-        with st.expander("⚠️ Problème de couleur magenta dans SD VFR Next ?"):
+        # Section téléchargements MBTiles par couleur
+        if st.session_state.generated_mbtiles:
+            st.markdown("---")
+            with st.container():
+                st.markdown("""
+                <div style="background-color: #f3e5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #7B1FA2;">📥 Télécharger les fichiers MBTiles par couleur</h4>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                download_cols = st.columns(min(3, len(st.session_state.generated_mbtiles)))
+                for i, (color, file_info) in enumerate(st.session_state.generated_mbtiles.items()):
+                    with download_cols[i % len(download_cols)]:
+                        st.download_button(
+                            label=f"💾 {color.capitalize()}\n({file_info['count']} objets)",
+                            data=file_info['data'],
+                            file_name=file_info['filename'],
+                            mime="application/octet-stream",
+                            use_container_width=True,
+                            key=f"download_{color}_cached"
+                        )
+    
+    else:
+        with st.container():
             st.markdown("""
-            **Pourquoi tout est magenta ?**
-            
-            C'est normal ! Tippecanoe (qui crée les MBTiles) ne transfère pas les couleurs.
-            
-            **Solutions :**
-            
-            📄 **Recommandé : Utilisez le KML** pour SDVFR classique (conserve les couleurs)
-            
-            ⚙️ **Pour SD VFR Next :** Configuration manuelle dans l'app
-            - Accédez aux paramètres de la couche importée
-            - Créez des règles de style basées sur les noms d'objets
-            - Exemple : "Si nom contient 'rouge' alors couleur = rouge"
-            
-            **Note :** C'est une limitation technique des MBTiles, pas un bug de cet outil.
-            """)
+            <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+                <h4 style="margin: 0; color: #E65100;">📝 Aucune donnée à exporter</h4>
+                <p style="margin: 10px 0; color: #666;">Créez d'abord des objets dans les autres onglets</p>
+            </div>
+            """, unsafe_allow_html=True)
     
     # Aperçu des données
     if total_objects > 0:
@@ -1471,7 +1504,7 @@ with tab1:
         
         for point in st.session_state.points_data:
             all_objects.append({
-                "Type": "Point",
+                "Type": "📍 Point",
                 "Nom": point['name'],
                 "Détails": f"Lat: {point['lat']:.4f}, Lon: {point['lon']:.4f}",
                 "Description": point.get('description', '')
@@ -1479,7 +1512,7 @@ with tab1:
         
         for line in st.session_state.lines_data:
             all_objects.append({
-                "Type": "Ligne",
+                "Type": "📏 Ligne",
                 "Nom": line['name'],
                 "Détails": f"{len(line['points'])} points, {line['color']}",
                 "Description": line.get('description', '')
@@ -1489,7 +1522,7 @@ with tab1:
             radius_display = circle['radius_km'] / 1.852 if circle['radius_unit'] == 'nautiques' else circle['radius_km'] * 1000
             unit_display = "NM" if circle['radius_unit'] == 'nautiques' else "m"
             all_objects.append({
-                "Type": "Cercle/Arc",
+                "Type": "⭕ Cercle/Arc",
                 "Nom": circle['name'],
                 "Détails": f"R={radius_display:.2f}{unit_display}, {circle['color']}",
                 "Description": circle.get('description', '')
@@ -1498,14 +1531,14 @@ with tab1:
         for rect in st.session_state.rectangles_data:
             if 'length_km' in rect:
                 all_objects.append({
-                    "Type": "Rectangle",
+                    "Type": "🔷 Rectangle",
                     "Nom": rect['name'],
                     "Détails": f"{rect['length_km']*1000:.0f}m x {rect['width_km']*1000:.0f}m",
                     "Description": rect.get('description', '')
                 })
             else:
                 all_objects.append({
-                    "Type": "Polygone",
+                    "Type": "🔷 Polygone",
                     "Nom": rect['name'],
                     "Détails": f"{len(rect['points'])} points",
                     "Description": rect.get('description', '')
@@ -1513,7 +1546,57 @@ with tab1:
         
         if all_objects:
             df = pd.DataFrame(all_objects)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # Informations et aide
+    st.markdown("---")
+    with st.expander("ℹ️ Informations sur les formats d'export"):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("""
+            **📄 KML**
+            - Compatible Google Earth
+            - Compatible SDVFR classique
+            - Conserve toutes les couleurs
+            - Format recommandé
+            """)
+        
+        with col2:
+            st.markdown("""
+            **🗺️ GeoJSON**
+            - Format standard web
+            - Compatible Tippecanoe
+            - Pour développeurs
+            - Données géospatiales
+            """)
+        
+        with col3:
+            st.markdown("""
+            **🔧 MBTiles**
+            - Spécifique SD VFR Next
+            - Fichier unique = tout magenta
+            - Par couleur = fichiers séparés
+            - Import manuel des couleurs
+            """)
+    
+    with st.expander("⚠️ Problème de couleur magenta dans SD VFR Next ?"):
+        st.markdown("""
+        **Pourquoi tout est magenta ?**
+        
+        C'est normal ! Tippecanoe (qui crée les MBTiles) ne transfère pas les couleurs.
+        
+        **Solutions :**
+        
+        📄 **Recommandé : Utilisez le KML** pour SDVFR classique (conserve les couleurs)
+        
+        ⚙️ **Pour SD VFR Next :** Configuration manuelle dans l'app
+        - Accédez aux paramètres de la couche importée
+        - Créez des règles de style basées sur les noms d'objets
+        - Exemple : "Si nom contient 'rouge' alors couleur = rouge"
+        
+        **Note :** C'est une limitation technique des MBTiles, pas un bug de cet outil.
+        """)
 
 # ONGLET POINTS
 with tab2:
