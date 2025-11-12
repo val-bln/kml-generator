@@ -1386,6 +1386,8 @@ with tab1:
                                     )
                                     st.success("✅ MBTiles généré avec succès!")
                                     st.info("💡 Tout apparaîtra en magenta dans SD VFR Next")
+                            except Exception as e:
+                                st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
                     
                     else:  # Fichiers séparés par couleur
                         with st.spinner("Génération MBTiles séparés par couleur..."):
@@ -1411,10 +1413,9 @@ with tab1:
                                             )
                                     
                                     st.info("💡 Importez chaque fichier séparément dans SD VFR Next")
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
-                            st.info("💡 Vérifiez que l'API de conversion est accessible")
+                            except Exception as e:
+                                st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
+                                st.info("💡 Vérifiez que l'API de conversion est accessible")
             
 
         else:
