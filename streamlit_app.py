@@ -826,6 +826,168 @@ def convert_geojson_minimal(geojson_data, name="minimal_tiles"):
     except Exception as e:
         raise Exception(f"Erreur lors de la conversion: {str(e)}")
 
+def generate_geojson_by_layers():
+    """Génère des GeoJSON séparés par type de géométrie pour créer des layers distincts"""
+    
+    # Layer Points
+    points_features = []
+    for point in st.session_state.points_data:
+        try:
+            lon, lat = float(point['lon']), float(point['lat'])
+            if -180 <= lon <= 180 and -90 <= lat <= 90:
+                points_features.append({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [lon, lat]
+                    },
+                    "properties": {
+                        "name": str(point['name']),
+                        "description": str(point.get('description', ''))
+                    }
+                })
+        except (ValueError, TypeError, KeyError):
+            continue
+    
+    # Layer Lignes
+    lines_features = []
+    for line in st.session_state.lines_data:
+        if 'points' in line and line['points'] and len(line['points']) >= 2:
+            coordinates = []
+            for coord in line['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 2:
+                lines_features.append({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": coordinates
+                    },
+                    "properties": {
+                        "name": str(line['name']),
+                        "description": str(line.get('description', ''))
+                    }
+                })
+    
+    # Layer Polygones (cercles + rectangles)
+    polygons_features = []
+    
+    # Ajouter cercles
+    for circle in st.session_state.circles_data:
+        if 'points' in circle and circle['points'] and len(circle['points']) >= 3:
+            coordinates = []
+            for coord in circle['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    polygons_features.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(circle['name']),
+                            "type": "cercle"
+                        }
+                    })
+    
+    # Ajouter rectangles
+    for rect in st.session_state.rectangles_data:
+        if 'points' in rect and rect['points'] and len(rect['points']) >= 3:
+            coordinates = []
+            for coord in rect['points']:
+                try:
+                    lon, lat = float(coord[0]), float(coord[1])
+                    if -180 <= lon <= 180 and -90 <= lat <= 90:
+                        coordinates.append([lon, lat])
+                except (ValueError, TypeError, IndexError):
+                    continue
+            
+            if len(coordinates) >= 3:
+                if coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])
+                
+                if len(coordinates) >= 4:
+                    polygons_features.append({
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates]
+                        },
+                        "properties": {
+                            "name": str(rect['name']),
+                            "description": str(rect.get('description', ''))
+                        }
+                    })
+    
+    return {
+        "points": {
+            "type": "FeatureCollection",
+            "features": points_features
+        },
+        "lines": {
+            "type": "FeatureCollection", 
+            "features": lines_features
+        },
+        "polygons": {
+            "type": "FeatureCollection",
+            "features": polygons_features
+        }
+    }
+
+def convert_geojson_layers_to_mbtiles(layers_data, name="converted_tiles"):
+    """Convertit plusieurs GeoJSON en un seul MBTiles avec layers séparés"""
+    try:
+        files = {}
+        data = {'name': name}
+        
+        # Préparer les fichiers pour chaque layer
+        for layer_name, geojson_data in layers_data.items():
+            if geojson_data['features']:  # Seulement si le layer contient des données
+                files[f'{layer_name}_file'] = (
+                    f'{layer_name}.geojson', 
+                    json.dumps(geojson_data), 
+                    'application/geo+json'
+                )
+                data[f'{layer_name}_layer'] = layer_name
+        
+        if not files:
+            raise Exception("Aucune donnée à convertir")
+        
+        response = requests.post(
+            f"{get_api_url()}/convert-geojson-layers-to-mbtiles",
+            files=files,
+            data=data,
+            timeout=API_TIMEOUT
+        )
+        
+        if response.status_code == 200:
+            return response.content
+        else:
+            error_msg = response.json().get('detail', 'Erreur inconnue') if response.headers.get('content-type') == 'application/json' else response.text
+            raise Exception(f"Erreur API: {error_msg}")
+            
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Erreur de connexion à l'API: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Erreur lors de la conversion: {str(e)}")
+
 def convert_geojson_to_mbtiles(geojson_data, min_zoom=0, max_zoom=14, name="converted_tiles", preserve_properties=True, simplification=0.0):
     """Convertit un GeoJSON en MBTiles via l'API FastAPI"""
     try:
@@ -857,46 +1019,7 @@ def convert_geojson_to_mbtiles(geojson_data, min_zoom=0, max_zoom=14, name="conv
     except Exception as e:
         raise Exception(f"Erreur lors de la conversion: {str(e)}")
 
-def convert_kml_to_mbtiles(kml_content, min_zoom=0, max_zoom=14, name="converted_tiles", preserve_properties=True, simplification=0.0):
-    """Convertit un KML en MBTiles via l'API FastAPI avec contrôle de la fidélité"""
-    try:
-        # Créer un fichier temporaire pour le KML
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.kml', delete=False, encoding='utf-8') as tmp_file:
-            tmp_file.write(kml_content)
-            tmp_file_path = tmp_file.name
-        
-        # Préparer la requête à l'API
-        with open(tmp_file_path, 'rb') as f:
-            files = {'file': (f'{name}.kml', f, 'application/vnd.google-earth.kml+xml')}
-            data = {
-                'min_zoom': min_zoom,
-                'max_zoom': max_zoom,
-                'name': name,
-                'preserve_properties': preserve_properties,
-                'simplification': simplification
-            }
-            
-            # Envoyer la requête à l'API
-            response = requests.post(
-                f"{get_api_url()}/convert-to-mbtiles",
-                files=files,
-                data=data,
-                timeout=API_TIMEOUT
-            )
-        
-        # Nettoyer le fichier temporaire
-        os.unlink(tmp_file_path)
-        
-        if response.status_code == 200:
-            return response.content
-        else:
-            error_msg = response.json().get('detail', 'Erreur inconnue') if response.headers.get('content-type') == 'application/json' else response.text
-            raise Exception(f"Erreur API: {error_msg}")
-            
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Erreur de connexion à l'API: {str(e)}")
-    except Exception as e:
-        raise Exception(f"Erreur lors de la conversion: {str(e)}")
+
 
 
 
@@ -1279,26 +1402,26 @@ with tab1:
                     
                     with st.spinner("Conversion en cours via Tippecanoe..."):
                         try:
-                            # Générer le GeoJSON optimisé pour Tippecanoe (sans points)
-                            geojson_data = generate_geojson_for_tippecanoe()
+                            # Générer les GeoJSON par layers
+                            layers_data = generate_geojson_by_layers()
                             
-                            # Vérifier que le GeoJSON contient des données
-                            if not geojson_data['features']:
+                            # Vérifier qu'il y a des données
+                            total_features = sum(len(layer['features']) for layer in layers_data.values())
+                            if total_features == 0:
                                 st.warning("⚠️ Aucune donnée à convertir")
                             else:
-                            
-                            # Utiliser les paramètres minimaux qui fonctionnent avec SDVFR Next
-                                mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
-                            
-                            st.download_button(
-                                label="💾 Télécharger MBTiles",
-                                data=mbtiles_data,
-                                file_name=f"{clean_filename}.mbtiles",
-                                mime="application/octet-stream",
-                                use_container_width=True
-                            )
-                            st.success("✅ MBTiles généré avec succès!")
-                            st.info("💡 Utilise les paramètres Tippecanoe compatibles SDVFR Next")
+                                # Convertir en MBTiles avec layers séparés
+                                mbtiles_data = convert_geojson_layers_to_mbtiles(layers_data, name=clean_filename)
+                                
+                                st.download_button(
+                                    label="💾 Télécharger MBTiles",
+                                    data=mbtiles_data,
+                                    file_name=f"{clean_filename}.mbtiles",
+                                    mime="application/octet-stream",
+                                    use_container_width=True
+                                )
+                                st.success("✅ MBTiles généré avec layers séparés!")
+                                st.info("💡 Layers: points, lignes, polygones")
                             
                         except Exception as e:
                             st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
@@ -1339,7 +1462,7 @@ with tab1:
         st.info("💡 **Formats disponibles :**")
         st.caption("• **KML :** Compatible Google Earth et SDVFR classique")
         st.caption("• **GeoJSON :** Format standard pour applications web et Tippecanoe")
-        st.caption("• **MBTiles :** Tuiles vectorielles pour SDVFR Next et applications mobiles")
+        st.caption("• **MBTiles :** Tuiles vectorielles avec layers séparés pour SDVFR Next")
     
     # Aperçu des données
     if total_objects > 0:
