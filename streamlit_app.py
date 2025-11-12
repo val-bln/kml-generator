@@ -714,37 +714,37 @@ def group_objects_by_color():
     """Groupe les objets par couleur pour créer des MBTiles séparés"""
     colors_data = {}
     
-    # Fonction pour ajouter un objet à une couleur
     def add_to_color(color, feature):
         if color not in colors_data:
             colors_data[color] = {"type": "FeatureCollection", "features": []}
         colors_data[color]["features"].append(feature)
     
-    # Points convertis en cercles de 25m
-    for point in st.session_state.points_data:
-        try:
-            lat, lon = float(point['lat']), float(point['lon'])
-            if -180 <= lon <= 180 and -90 <= lat <= 90:
-                circle_points = calculate_circle_points(lat, lon, 0.025, 36, is_arc=False)
-                
-                if len(circle_points) >= 3:
-                    if circle_points[0] != circle_points[-1]:
-                        circle_points.append(circle_points[0])
+    # Points convertis en cercles de 25m - tous dans "points" pour une couleur standard
+    if st.session_state.points_data:
+        for point in st.session_state.points_data:
+            try:
+                lat, lon = float(point['lat']), float(point['lon'])
+                if -180 <= lon <= 180 and -90 <= lat <= 90:
+                    circle_points = calculate_circle_points(lat, lon, 0.025, 36, is_arc=False)
                     
-                    feature = {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [circle_points]
-                        },
-                        "properties": {
-                            "name": str(point['name']),
-                            "description": str(point.get('description', ''))
+                    if len(circle_points) >= 3:
+                        if circle_points[0] != circle_points[-1]:
+                            circle_points.append(circle_points[0])
+                        
+                        feature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [circle_points]
+                            },
+                            "properties": {
+                                "name": str(point['name']),
+                                "description": str(point.get('description', ''))
+                            }
                         }
-                    }
-                    add_to_color("rouge", feature)  # Points par défaut en rouge
-        except (ValueError, TypeError, KeyError):
-            continue
+                        add_to_color("points", feature)
+            except (ValueError, TypeError, KeyError):
+                continue
     
     # Lignes groupées par couleur
     for line in st.session_state.lines_data:
@@ -1357,49 +1357,60 @@ with tab1:
                 if not is_api_configured():
                     st.warning("⚠️ API non configurée")
                     st.button("🔧 MBTiles", disabled=True, use_container_width=True)
-                elif st.button("🔧 MBTiles par couleur", use_container_width=True):
+                elif st.button("🔧 MBTiles", use_container_width=True):
                     clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
                     
-                    with st.spinner("Génération MBTiles séparés par couleur..."):
-                        try:
-                            # Grouper les objets par couleur
-                            colors_data = group_objects_by_color()
-                            
-                            if not colors_data:
-                                st.warning("⚠️ Aucune donnée à convertir")
-                            else:
-                                st.success(f"✅ {len(colors_data)} fichiers MBTiles générés par couleur!")
+                    # Choix du mode de génération
+                    mode = st.radio(
+                        "Mode de génération :",
+                        ["Fichier unique (tout en magenta)", "Fichiers séparés par couleur"],
+                        key="mbtiles_mode"
+                    )
+                    
+                    if mode == "Fichier unique (tout en magenta)":
+                        with st.spinner("Conversion en cours via Tippecanoe..."):
+                            try:
+                                geojson_data = generate_geojson_for_tippecanoe()
                                 
-                                # Créer un bouton de téléchargement pour chaque couleur
-                                for color, geojson_data in colors_data.items():
-                                    if geojson_data['features']:
-                                        mbtiles_data = convert_geojson_minimal(geojson_data, name=f"{clean_filename}_{color}")
-                                        
-                                        st.download_button(
-                                            label=f"💾 {color.capitalize()} ({len(geojson_data['features'])} objets)",
-                                            data=mbtiles_data,
-                                            file_name=f"{clean_filename}_{color}.mbtiles",
-                                            mime="application/octet-stream",
-                                            use_container_width=True,
-                                            key=f"download_{color}"
-                                        )
-                                
-                                st.info("💡 Importez chaque fichier séparément dans SD VFR Next et configurez la couleur correspondante")
-                                
-                                # Guide d'utilisation
-                                with st.expander("📋 Comment utiliser dans SD VFR Next ?"):
-                                    st.markdown("""
-                                    **Étapes :**
+                                if not geojson_data['features']:
+                                    st.warning("⚠️ Aucune donnée à convertir")
+                                else:
+                                    mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
                                     
-                                    1. **Téléchargez** tous les fichiers MBTiles (un par couleur)
-                                    2. **Dans SD VFR Next** :
-                                       - Importez `nom_rouge.mbtiles` → Configurez en rouge
-                                       - Importez `nom_vert.mbtiles` → Configurez en vert
-                                       - Importez `nom_bleu.mbtiles` → Configurez en bleu
-                                       - etc.
+                                    st.download_button(
+                                        label="💾 Télécharger MBTiles",
+                                        data=mbtiles_data,
+                                        file_name=f"{clean_filename}.mbtiles",
+                                        mime="application/octet-stream",
+                                        use_container_width=True
+                                    )
+                                    st.success("✅ MBTiles généré avec succès!")
+                                    st.info("💡 Tout apparaîtra en magenta dans SD VFR Next")
+                    
+                    else:  # Fichiers séparés par couleur
+                        with st.spinner("Génération MBTiles séparés par couleur..."):
+                            try:
+                                colors_data = group_objects_by_color()
+                                
+                                if not colors_data:
+                                    st.warning("⚠️ Aucune donnée à convertir")
+                                else:
+                                    st.success(f"✅ {len(colors_data)} fichiers MBTiles générés par couleur!")
                                     
-                                    **Avantage :** Chaque couleur = une couche séparée = style indépendant !
-                                    """)
+                                    for color, geojson_data in colors_data.items():
+                                        if geojson_data['features']:
+                                            mbtiles_data = convert_geojson_minimal(geojson_data, name=f"{clean_filename}_{color}")
+                                            
+                                            st.download_button(
+                                                label=f"💾 {color.capitalize()} ({len(geojson_data['features'])} objets)",
+                                                data=mbtiles_data,
+                                                file_name=f"{clean_filename}_{color}.mbtiles",
+                                                mime="application/octet-stream",
+                                                use_container_width=True,
+                                                key=f"download_{color}"
+                                            )
+                                    
+                                    st.info("💡 Importez chaque fichier séparément dans SD VFR Next")
                             
                         except Exception as e:
                             st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
@@ -1413,7 +1424,7 @@ with tab1:
         st.info("💡 **Formats disponibles :**")
         st.caption("• **KML :** Compatible Google Earth et SDVFR classique")
         st.caption("• **GeoJSON :** Format standard pour applications web et Tippecanoe")
-        st.caption("• **MBTiles par couleur :** Fichiers séparés par couleur pour SD VFR Next (une couche = une couleur)")
+        st.caption("• **MBTiles :** Fichier unique ou séparés par couleur pour SD VFR Next")
         
         # Section d'aide simplifiée
         with st.expander("⚠️ Problème de couleur magenta dans SD VFR Next ?"):
@@ -2457,11 +2468,11 @@ with tab6:
     
     with col1:
         st.markdown("""
-        #### 🟢 Solutions qui fonctionnent :
-        - ✅ **MBTiles par couleur** (fichiers séparés)
-        - ✅ **KML** (si SDVFR classique disponible)
-        - ✅ **Une couche = une couleur** dans SD VFR Next
-        - ✅ **Performance + Style** optimaux
+        #### 🟢 Solutions disponibles :
+        - ✅ **MBTiles unique** (rapide, tout magenta)
+        - ✅ **MBTiles par couleur** (plus de fichiers, couleurs OK)
+        - ✅ **KML** (couleurs parfaites)
+        - ✅ **Choix selon vos besoins**
         """)
     
     with col2:
@@ -2476,14 +2487,16 @@ with tab6:
     st.markdown("""
     ### Solutions pour SD VFR Next :
     
-    **Problème :** SD VFR Next applique le style à l'ensemble du MBTiles, pas individuellement.
+    **Problème :** SD VFR Next applique le style à l'ensemble du MBTiles.
     
-    **Solution :** **MBTiles séparés par couleur**
-    - Un fichier MBTiles par couleur (rouge, vert, bleu, etc.)
-    - Chaque fichier = une couche dans SD VFR Next
-    - Configurez la couleur de chaque couche séparément
+    **2 options disponibles :**
     
-    **Avantage :** Style parfait + Performance optimale !
+    1. **Fichier unique** : Rapide mais tout en magenta
+    2. **Fichiers par couleur** : Plus de fichiers mais couleurs respectées
+       - Points dans un fichier séparé (couleur standard)
+       - Chaque couleur de ligne/polygone = un fichier
+    
+    **Vous choisissez** selon vos besoins !
     """)
     
     st.markdown("---")
