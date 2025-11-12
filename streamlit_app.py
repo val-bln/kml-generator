@@ -1357,65 +1357,66 @@ with tab1:
                 if not is_api_configured():
                     st.warning("⚠️ API non configurée")
                     st.button("🔧 MBTiles", disabled=True, use_container_width=True)
-                elif st.button("🔧 MBTiles", use_container_width=True):
-                    clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
-                    
+                else:
                     # Choix du mode de génération
                     mode = st.radio(
-                        "Mode de génération :",
+                        "Mode de génération MBTiles :",
                         ["Fichier unique (tout en magenta)", "Fichiers séparés par couleur"],
                         key="mbtiles_mode"
                     )
                     
-                    if mode == "Fichier unique (tout en magenta)":
-                        with st.spinner("Conversion en cours via Tippecanoe..."):
-                            try:
-                                geojson_data = generate_geojson_for_tippecanoe()
-                                
-                                if not geojson_data['features']:
-                                    st.warning("⚠️ Aucune donnée à convertir")
-                                else:
-                                    mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
+                    if st.button("🔧 Générer MBTiles", use_container_width=True):
+                        clean_filename = filename.replace('.kml', '') if filename else "export_sdvfr"
+                        
+                        if mode == "Fichier unique (tout en magenta)":
+                            with st.spinner("Conversion en cours via Tippecanoe..."):
+                                try:
+                                    geojson_data = generate_geojson_for_tippecanoe()
                                     
-                                    st.download_button(
-                                        label="💾 Télécharger MBTiles",
-                                        data=mbtiles_data,
-                                        file_name=f"{clean_filename}.mbtiles",
-                                        mime="application/octet-stream",
-                                        use_container_width=True
-                                    )
-                                    st.success("✅ MBTiles généré avec succès!")
-                                    st.info("💡 Tout apparaîtra en magenta dans SD VFR Next")
-                            except Exception as e:
-                                st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
-                    
-                    else:  # Fichiers séparés par couleur
-                        with st.spinner("Génération MBTiles séparés par couleur..."):
-                            try:
-                                colors_data = group_objects_by_color()
-                                
-                                if not colors_data:
-                                    st.warning("⚠️ Aucune donnée à convertir")
-                                else:
-                                    st.success(f"✅ {len(colors_data)} fichiers MBTiles générés par couleur!")
+                                    if not geojson_data['features']:
+                                        st.warning("⚠️ Aucune donnée à convertir")
+                                    else:
+                                        mbtiles_data = convert_geojson_minimal(geojson_data, name=clean_filename)
+                                        
+                                        st.download_button(
+                                            label="💾 Télécharger MBTiles",
+                                            data=mbtiles_data,
+                                            file_name=f"{clean_filename}.mbtiles",
+                                            mime="application/octet-stream",
+                                            use_container_width=True
+                                        )
+                                        st.success("✅ MBTiles généré avec succès!")
+                                        st.info("💡 Tout apparaîtra en magenta dans SD VFR Next")
+                                except Exception as e:
+                                    st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
+                        
+                        else:  # Fichiers séparés par couleur
+                            with st.spinner("Génération MBTiles séparés par couleur..."):
+                                try:
+                                    colors_data = group_objects_by_color()
                                     
-                                    for color, geojson_data in colors_data.items():
-                                        if geojson_data['features']:
-                                            mbtiles_data = convert_geojson_minimal(geojson_data, name=f"{clean_filename}_{color}")
-                                            
-                                            st.download_button(
-                                                label=f"💾 {color.capitalize()} ({len(geojson_data['features'])} objets)",
-                                                data=mbtiles_data,
-                                                file_name=f"{clean_filename}_{color}.mbtiles",
-                                                mime="application/octet-stream",
-                                                use_container_width=True,
-                                                key=f"download_{color}"
-                                            )
-                                    
-                                    st.info("💡 Importez chaque fichier séparément dans SD VFR Next")
-                            except Exception as e:
-                                st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
-                                st.info("💡 Vérifiez que l'API de conversion est accessible")
+                                    if not colors_data:
+                                        st.warning("⚠️ Aucune donnée à convertir")
+                                    else:
+                                        st.success(f"✅ {len(colors_data)} fichiers MBTiles générés par couleur!")
+                                        
+                                        for color, geojson_data in colors_data.items():
+                                            if geojson_data['features']:
+                                                mbtiles_data = convert_geojson_minimal(geojson_data, name=f"{clean_filename}_{color}")
+                                                
+                                                st.download_button(
+                                                    label=f"💾 {color.capitalize()} ({len(geojson_data['features'])} objets)",
+                                                    data=mbtiles_data,
+                                                    file_name=f"{clean_filename}_{color}.mbtiles",
+                                                    mime="application/octet-stream",
+                                                    use_container_width=True,
+                                                    key=f"download_{color}"
+                                                )
+                                        
+                                        st.info("💡 Importez chaque fichier séparément dans SD VFR Next")
+                                except Exception as e:
+                                    st.error(f"❌ Erreur lors de la génération MBTiles: {str(e)}")
+                                    st.info("💡 Vérifiez que l'API de conversion est accessible")
             
 
         else:
