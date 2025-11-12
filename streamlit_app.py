@@ -719,8 +719,8 @@ def generate_geojson_for_tippecanoe():
         try:
             lat, lon = float(point['lat']), float(point['lon'])
             if -180 <= lon <= 180 and -90 <= lat <= 90:
-                # Créer un cercle de 25m de rayon autour du point
-                circle_points = calculate_circle_points(lat, lon, 0.025, 36)  # 25m = 0.025km, 36 segments
+                # Créer un cercle de 25m de rayon autour du point (même méthode que les cercles normaux)
+                circle_points = calculate_circle_points(lat, lon, 0.025, 36, is_arc=False)  # Cercle complet, pas d'arc
                 
                 if len(circle_points) >= 3:
                     # Assurer fermeture du polygone
