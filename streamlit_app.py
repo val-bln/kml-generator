@@ -2520,24 +2520,28 @@ with tab5:
             if st.button("🔷 Générer Rectangle", use_container_width=True):
                 if rect_name:
                     try:
-                        length_km = length_val * 1.852 if length_unit == "nautiques" else length_val / 1000
-                        width_km = width_val * 1.852 if width_unit == "nautiques" else width_val / 1000
-                        
-                        rectangle_points = calculate_rectangle_points(rect_center_lat, rect_center_lon, length_km, width_km, bearing_deg)
-                        
-                        rect_data = {
-                            "type": "Rectangle", "name": rect_name, "center_lat": rect_center_lat, "center_lon": rect_center_lon,
-                            "length_km": length_km, "width_km": width_km, "bearing_deg": bearing_deg,
-                            "length_unit": length_unit, "width_unit": width_unit,
-                            "points": rectangle_points, "color": rect_color, "width": rect_width,
-                            "fill": fill_rect, "add_arrow": add_arrow
-                        }
-                        
-                        st.session_state.rectangles_data.append(rect_data)
-                        st.success(f"Rectangle '{rect_name}' généré!")
-                        st.rerun()
-                    except NameError:
-                        st.error("Coordonnées du centre requises")
+                        # Vérifier que les coordonnées sont définies
+                        if 'rect_center_lat' not in locals() or 'rect_center_lon' not in locals() or rect_center_lat is None or rect_center_lon is None:
+                            st.error("Coordonnées du centre requises")
+                        else:
+                            length_km = length_val * 1.852 if length_unit == "nautiques" else length_val / 1000
+                            width_km = width_val * 1.852 if width_unit == "nautiques" else width_val / 1000
+                            
+                            rectangle_points = calculate_rectangle_points(rect_center_lat, rect_center_lon, length_km, width_km, bearing_deg)
+                            
+                            rect_data = {
+                                "type": "Rectangle", "name": rect_name, "center_lat": rect_center_lat, "center_lon": rect_center_lon,
+                                "length_km": length_km, "width_km": width_km, "bearing_deg": bearing_deg,
+                                "length_unit": length_unit, "width_unit": width_unit,
+                                "points": rectangle_points, "color": rect_color, "width": rect_width,
+                                "fill": fill_rect, "add_arrow": add_arrow
+                            }
+                            
+                            st.session_state.rectangles_data.append(rect_data)
+                            st.success(f"Rectangle '{rect_name}' généré!")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Erreur lors de la génération: {str(e)}")
                 else:
                     st.error("Nom requis")
     
