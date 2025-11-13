@@ -245,6 +245,30 @@ def convert_calamar_to_gps(x_val, y_val, x_unit, y_unit):
     
     return result_lat, result_lon
 
+def dd_to_dm(decimal_degrees):
+    """Convertit degrés décimaux vers degrés minutes"""
+    degrees = int(abs(decimal_degrees))
+    minutes = (abs(decimal_degrees) - degrees) * 60
+    return degrees, minutes
+
+def dd_to_dms(decimal_degrees):
+    """Convertit degrés décimaux vers degrés minutes secondes"""
+    degrees = int(abs(decimal_degrees))
+    minutes_float = (abs(decimal_degrees) - degrees) * 60
+    minutes = int(minutes_float)
+    seconds = (minutes_float - minutes) * 60
+    return degrees, minutes, seconds
+
+def dm_to_dd(degrees, minutes, direction):
+    """Convertit degrés minutes vers degrés décimaux"""
+    dd = degrees + minutes/60
+    return -dd if direction in ['S', 'W'] else dd
+
+def dms_to_dd(degrees, minutes, seconds, direction):
+    """Convertit degrés minutes secondes vers degrés décimaux"""
+    dd = degrees + minutes/60 + seconds/3600
+    return -dd if direction in ['S', 'W'] else dd
+
 def calculate_circle_points(center_lat, center_lon, radius_km, num_segments, is_arc=False, start_angle_deg=0, end_angle_deg=360, close_arc=True):
     """Calcul de cercles avec précision Vincenty"""
     points = []
@@ -2604,6 +2628,93 @@ with tab6:
     
     **Vous choisissez** selon vos besoins !
     """)
+    
+    st.markdown("---")
+    st.subheader("🔄 Convertisseur de coordonnées GPS")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Coordonnées d'entrée**")
+        input_format = st.selectbox("Format d'entrée", ["Degrés décimaux", "Degrés Minutes", "Degrés Minutes Secondes", "Calamar"], key="coord_input_format")
+        
+        if input_format == "Degrés décimaux":
+            lat_dd = st.number_input("Latitude", value=44.089056, format="%.6f", key="conv_lat_dd")
+            lon_dd = st.number_input("Longitude", value=-1.123456, format="%.6f", key="conv_lon_dd")
+            
+        elif input_format == "Degrés Minutes":
+            col_lat, col_lon = st.columns(2)
+            with col_lat:
+                st.write("Latitude")
+                lat_deg = st.number_input("°", value=44, min_value=0, max_value=90, key="conv_lat_deg_dm")
+                lat_min = st.number_input("'", value=5.343, min_value=0.0, max_value=59.999, format="%.3f", key="conv_lat_min_dm")
+                lat_dir = st.selectbox("N/S", ["N", "S"], key="conv_lat_dir_dm")
+            with col_lon:
+                st.write("Longitude")
+                lon_deg = st.number_input("°", value=1, min_value=0, max_value=180, key="conv_lon_deg_dm")
+                lon_min = st.number_input("'", value=7.407, min_value=0.0, max_value=59.999, format="%.3f", key="conv_lon_min_dm")
+                lon_dir = st.selectbox("E/W", ["E", "W"], key="conv_lon_dir_dm")
+            
+            lat_dd = dm_to_dd(lat_deg, lat_min, lat_dir)
+            lon_dd = dm_to_dd(lon_deg, lon_min, lon_dir)
+            
+        elif input_format == "Degrés Minutes Secondes":
+            col_lat, col_lon = st.columns(2)
+            with col_lat:
+                st.write("Latitude")
+                lat_deg = st.number_input("°", value=44, min_value=0, max_value=90, key="conv_lat_deg_dms")
+                lat_min = st.number_input("'", value=5, min_value=0, max_value=59, key="conv_lat_min_dms")
+                lat_sec = st.number_input('"', value=20.6, min_value=0.0, max_value=59.999, format="%.3f", key="conv_lat_sec_dms")
+                lat_dir = st.selectbox("N/S", ["N", "S"], key="conv_lat_dir_dms")
+            with col_lon:
+                st.write("Longitude")
+                lon_deg = st.number_input("°", value=1, min_value=0, max_value=180, key="conv_lon_deg_dms")
+                lon_min = st.number_input("'", value=7, min_value=0, max_value=59, key="conv_lon_min_dms")
+                lon_sec = st.number_input('"', value=24.4, min_value=0.0, max_value=59.999, format="%.3f", key="conv_lon_sec_dms")
+                lon_dir = st.selectbox("E/W", ["E", "W"], key="conv_lon_dir_dms")
+            
+            lat_dd = dms_to_dd(lat_deg, lat_min, lat_sec, lat_dir)
+            lon_dd = dms_to_dd(lon_deg, lon_min, lon_sec, lon_dir)
+            
+        else:  # Calamar
+            col_x, col_y = st.columns(2)
+            with col_x:
+                x_val = st.number_input("Axe Y", value=0.0, key="conv_calamar_x")
+                x_unit = st.selectbox("Unité Y", ["mL", "mC"], key="conv_calamar_x_unit")
+            with col_y:
+                y_val = st.number_input("Axe X", value=0.0, key="conv_calamar_y")
+                y_unit = st.selectbox("Unité X", ["mD", "mG"], key="conv_calamar_y_unit")
+            
+            lat_dd, lon_dd = convert_calamar_to_gps(x_val, y_val, x_unit, y_unit)
+    
+    with col2:
+        st.write("**Résultats de conversion**")
+        
+        # Degrés décimaux
+        st.write("**Degrés décimaux (DD)**")
+        st.code(f"Latitude:  {lat_dd:.6f}°\nLongitude: {lon_dd:.6f}°")
+        
+        # Degrés Minutes
+        lat_deg_dm, lat_min_dm = dd_to_dm(lat_dd)
+        lon_deg_dm, lon_min_dm = dd_to_dm(lon_dd)
+        lat_dir_dm = 'S' if lat_dd < 0 else 'N'
+        lon_dir_dm = 'W' if lon_dd < 0 else 'E'
+        
+        st.write("**Degrés Minutes (DM)**")
+        st.code(f"Latitude:  {lat_deg_dm}° {lat_min_dm:.3f}' {lat_dir_dm}\nLongitude: {lon_deg_dm}° {lon_min_dm:.3f}' {lon_dir_dm}")
+        
+        # Degrés Minutes Secondes
+        lat_deg_dms, lat_min_dms, lat_sec_dms = dd_to_dms(lat_dd)
+        lon_deg_dms, lon_min_dms, lon_sec_dms = dd_to_dms(lon_dd)
+        lat_dir_dms = 'S' if lat_dd < 0 else 'N'
+        lon_dir_dms = 'W' if lon_dd < 0 else 'E'
+        
+        st.write("**Degrés Minutes Secondes (DMS)**")
+        st.code(f"Latitude:  {lat_deg_dms}° {lat_min_dms}' {lat_sec_dms:.3f}\" {lat_dir_dms}\nLongitude: {lon_deg_dms}° {lon_min_dms}' {lon_sec_dms:.3f}\" {lon_dir_dms}")
+        
+        # Formats spéciaux
+        st.write("**Formats spéciaux**")
+        st.code(f"Google Maps: {lat_dd:.6f}, {lon_dd:.6f}\nWGS84: {lat_dd:.6f}°N {abs(lon_dd):.6f}°W")
     
     st.markdown("---")
     st.subheader("📊 Calculer distance et gisement")
