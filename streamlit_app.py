@@ -296,59 +296,18 @@ def gps_to_calamar(lat, lon):
     return x_calamar, y_calamar
 
 def load_nav_database():
-    """Charge la base de données des points aéronautiques français"""
-    nav_points = {
-        # Aéroports principaux
-        "LFPG - CDG Paris": {"lat": 49.0097, "lon": 2.5479, "type": "Aéroport", "freq": "118.15"},
-        "LFPO - ORY Paris": {"lat": 48.7233, "lon": 2.3794, "type": "Aéroport", "freq": "119.15"},
-        "LFML - MRS Marseille": {"lat": 43.4393, "lon": 5.2214, "type": "Aéroport", "freq": "119.25"},
-        "LFLL - LYS Lyon": {"lat": 45.7256, "lon": 5.0811, "type": "Aéroport", "freq": "118.80"},
-        "LFMN - NCE Nice": {"lat": 43.6584, "lon": 7.2159, "type": "Aéroport", "freq": "119.10"},
-        "LFRN - RNS Rennes": {"lat": 48.0695, "lon": -1.7348, "type": "Aéroport", "freq": "120.35"},
-        "LFBO - TLS Toulouse": {"lat": 43.6291, "lon": 1.3638, "type": "Aéroport", "freq": "118.30"},
-        "LFBD - BOD Bordeaux": {"lat": 44.8283, "lon": -0.7156, "type": "Aéroport", "freq": "119.20"},
-        
-        # VOR principaux
-        "ABB - Abbeville VOR": {"lat": 50.1358, "lon": 1.8331, "type": "VOR", "freq": "114.55"},
-        "AGN - Agen VOR": {"lat": 44.1747, "lon": 0.5906, "type": "VOR", "freq": "113.80"},
-        "ALS - Alès VOR": {"lat": 44.0697, "lon": 4.1419, "type": "VOR", "freq": "115.40"},
-        "AMB - Amboise VOR": {"lat": 47.2889, "lon": 0.9719, "type": "VOR", "freq": "117.70"},
-        "BLM - Blois VOR": {"lat": 47.6781, "lon": 1.2111, "type": "VOR", "freq": "114.25"},
-        "BOR - Bordeaux VOR": {"lat": 44.8283, "lon": -0.7156, "type": "VOR", "freq": "117.30"},
-        "CHA - Chartres VOR": {"lat": 48.4619, "lon": 1.5306, "type": "VOR", "freq": "117.25"},
-        "CLM - Coulommiers VOR": {"lat": 48.8281, "lon": 3.2619, "type": "VOR", "freq": "117.90"},
-        "DIJ - Dijon VOR": {"lat": 47.2689, "lon": 5.0889, "type": "VOR", "freq": "114.70"},
-        "LMG - Limoges VOR": {"lat": 45.8628, "lon": 1.1794, "type": "VOR", "freq": "115.10"},
-        "LOR - Lorient VOR": {"lat": 47.7606, "lon": -3.4400, "type": "VOR", "freq": "113.85"},
-        "MRS - Marseille VOR": {"lat": 43.4393, "lon": 5.2214, "type": "VOR", "freq": "114.30"},
-        "NTS - Nantes VOR": {"lat": 47.1531, "lon": -1.6106, "type": "VOR", "freq": "117.80"},
-        "STR - Strasbourg VOR": {"lat": 48.5439, "lon": 7.6281, "type": "VOR", "freq": "113.90"},
-        
-        # Aérodromes régionaux
-        "LFBH - La Rochelle": {"lat": 46.1792, "lon": -1.1953, "type": "Aérodrome", "freq": "119.40"},
-        "LFBI - Poitiers": {"lat": 46.5875, "lon": 0.3067, "type": "Aérodrome", "freq": "122.60"},
-        "LFBZ - Biarritz": {"lat": 43.4683, "lon": -1.5231, "type": "Aérodrome", "freq": "118.10"},
-        "LFLB - Chambéry": {"lat": 45.6381, "lon": 5.8803, "type": "Aérodrome", "freq": "118.25"},
-        "LFLS - Grenoble": {"lat": 45.3628, "lon": 5.3294, "type": "Aérodrome", "freq": "120.75"},
-        "LFMT - Montpellier": {"lat": 43.5761, "lon": 3.9631, "type": "Aérodrome", "freq": "119.00"},
-        "LFOK - Calais": {"lat": 50.9622, "lon": 1.9547, "type": "Aérodrome", "freq": "119.35"},
-        "LFQQ - Lille": {"lat": 50.5619, "lon": 3.0894, "type": "Aérodrome", "freq": "120.15"},
-        "LFRB - Brest": {"lat": 48.4478, "lon": -4.4186, "type": "Aérodrome", "freq": "118.60"},
-        "LFRH - Lorient": {"lat": 47.7606, "lon": -3.4400, "type": "Aérodrome", "freq": "123.50"},
-        "LFRK - Caen": {"lat": 49.1733, "lon": -0.4600, "type": "Aérodrome", "freq": "120.30"},
-        "LFRS - Nantes": {"lat": 47.1531, "lon": -1.6106, "type": "Aérodrome", "freq": "119.80"},
-        "LFSD - Dijon": {"lat": 47.2689, "lon": 5.0889, "type": "Aérodrome", "freq": "122.10"},
-        "LFSB - Bâle-Mulhouse": {"lat": 47.5897, "lon": 7.5294, "type": "Aéroport", "freq": "119.75"},
-        
-        # Points de report VFR
-        "Château de Vincennes": {"lat": 48.8422, "lon": 2.4364, "type": "Point VFR", "freq": ""},
-        "Tour Eiffel": {"lat": 48.8584, "lon": 2.2945, "type": "Point VFR", "freq": ""},
-        "Château de Versailles": {"lat": 48.8049, "lon": 2.1204, "type": "Point VFR", "freq": ""},
-        "Stade de France": {"lat": 48.9244, "lon": 2.3601, "type": "Point VFR", "freq": ""},
-        "Pont du Gard": {"lat": 43.9475, "lon": 4.5356, "type": "Point VFR", "freq": ""},
-        "Mont Blanc": {"lat": 45.8326, "lon": 6.8652, "type": "Point VFR", "freq": ""},
-    }
-    return nav_points
+    """Charge la base de données complète des points aéronautiques français"""
+    try:
+        from nav_database_complete import get_complete_nav_database
+        return get_complete_nav_database()
+    except ImportError:
+        # Fallback avec base réduite si le fichier n'existe pas
+        return {
+            "LFPG - CDG Paris": {"lat": 49.0097, "lon": 2.5479, "type": "Aéroport", "freq": "118.15"},
+            "LFPO - ORY Paris": {"lat": 48.7233, "lon": 2.3794, "type": "Aéroport", "freq": "119.15"},
+            "LFML - MRS Marseille": {"lat": 43.4393, "lon": 5.2214, "type": "Aéroport", "freq": "119.25"},
+            "Tour Eiffel": {"lat": 48.8584, "lon": 2.2945, "type": "Point VFR", "freq": ""},
+        }
 
 def calculate_circle_points(center_lat, center_lon, radius_km, num_segments, is_arc=False, start_angle_deg=0, end_angle_deg=360, close_arc=True):
     """Calcul de cercles avec précision Vincenty"""
