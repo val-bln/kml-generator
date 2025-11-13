@@ -122,6 +122,8 @@ if 'reference_kml_data' not in st.session_state:
     st.session_state.reference_kml_data = None
 if 'generated_mbtiles' not in st.session_state:
     st.session_state.generated_mbtiles = {}
+if 'nav_database' not in st.session_state:
+    st.session_state.nav_database = None
 
 # Constantes WGS84
 WGS84_A = 6378137.0  # Demi-grand axe (m)
@@ -292,6 +294,61 @@ def gps_to_calamar(lat, lon):
     y_calamar = y_params[0] * lat + y_params[1] * lon + y_params[2]
     
     return x_calamar, y_calamar
+
+def load_nav_database():
+    """Charge la base de données des points aéronautiques français"""
+    nav_points = {
+        # Aéroports principaux
+        "LFPG - CDG Paris": {"lat": 49.0097, "lon": 2.5479, "type": "Aéroport", "freq": "118.15"},
+        "LFPO - ORY Paris": {"lat": 48.7233, "lon": 2.3794, "type": "Aéroport", "freq": "119.15"},
+        "LFML - MRS Marseille": {"lat": 43.4393, "lon": 5.2214, "type": "Aéroport", "freq": "119.25"},
+        "LFLL - LYS Lyon": {"lat": 45.7256, "lon": 5.0811, "type": "Aéroport", "freq": "118.80"},
+        "LFMN - NCE Nice": {"lat": 43.6584, "lon": 7.2159, "type": "Aéroport", "freq": "119.10"},
+        "LFRN - RNS Rennes": {"lat": 48.0695, "lon": -1.7348, "type": "Aéroport", "freq": "120.35"},
+        "LFBO - TLS Toulouse": {"lat": 43.6291, "lon": 1.3638, "type": "Aéroport", "freq": "118.30"},
+        "LFBD - BOD Bordeaux": {"lat": 44.8283, "lon": -0.7156, "type": "Aéroport", "freq": "119.20"},
+        
+        # VOR principaux
+        "ABB - Abbeville VOR": {"lat": 50.1358, "lon": 1.8331, "type": "VOR", "freq": "114.55"},
+        "AGN - Agen VOR": {"lat": 44.1747, "lon": 0.5906, "type": "VOR", "freq": "113.80"},
+        "ALS - Alès VOR": {"lat": 44.0697, "lon": 4.1419, "type": "VOR", "freq": "115.40"},
+        "AMB - Amboise VOR": {"lat": 47.2889, "lon": 0.9719, "type": "VOR", "freq": "117.70"},
+        "BLM - Blois VOR": {"lat": 47.6781, "lon": 1.2111, "type": "VOR", "freq": "114.25"},
+        "BOR - Bordeaux VOR": {"lat": 44.8283, "lon": -0.7156, "type": "VOR", "freq": "117.30"},
+        "CHA - Chartres VOR": {"lat": 48.4619, "lon": 1.5306, "type": "VOR", "freq": "117.25"},
+        "CLM - Coulommiers VOR": {"lat": 48.8281, "lon": 3.2619, "type": "VOR", "freq": "117.90"},
+        "DIJ - Dijon VOR": {"lat": 47.2689, "lon": 5.0889, "type": "VOR", "freq": "114.70"},
+        "LMG - Limoges VOR": {"lat": 45.8628, "lon": 1.1794, "type": "VOR", "freq": "115.10"},
+        "LOR - Lorient VOR": {"lat": 47.7606, "lon": -3.4400, "type": "VOR", "freq": "113.85"},
+        "MRS - Marseille VOR": {"lat": 43.4393, "lon": 5.2214, "type": "VOR", "freq": "114.30"},
+        "NTS - Nantes VOR": {"lat": 47.1531, "lon": -1.6106, "type": "VOR", "freq": "117.80"},
+        "STR - Strasbourg VOR": {"lat": 48.5439, "lon": 7.6281, "type": "VOR", "freq": "113.90"},
+        
+        # Aérodromes régionaux
+        "LFBH - La Rochelle": {"lat": 46.1792, "lon": -1.1953, "type": "Aérodrome", "freq": "119.40"},
+        "LFBI - Poitiers": {"lat": 46.5875, "lon": 0.3067, "type": "Aérodrome", "freq": "122.60"},
+        "LFBZ - Biarritz": {"lat": 43.4683, "lon": -1.5231, "type": "Aérodrome", "freq": "118.10"},
+        "LFLB - Chambéry": {"lat": 45.6381, "lon": 5.8803, "type": "Aérodrome", "freq": "118.25"},
+        "LFLS - Grenoble": {"lat": 45.3628, "lon": 5.3294, "type": "Aérodrome", "freq": "120.75"},
+        "LFMT - Montpellier": {"lat": 43.5761, "lon": 3.9631, "type": "Aérodrome", "freq": "119.00"},
+        "LFOK - Calais": {"lat": 50.9622, "lon": 1.9547, "type": "Aérodrome", "freq": "119.35"},
+        "LFQQ - Lille": {"lat": 50.5619, "lon": 3.0894, "type": "Aérodrome", "freq": "120.15"},
+        "LFRB - Brest": {"lat": 48.4478, "lon": -4.4186, "type": "Aérodrome", "freq": "118.60"},
+        "LFRH - Lorient": {"lat": 47.7606, "lon": -3.4400, "type": "Aérodrome", "freq": "123.50"},
+        "LFRK - Caen": {"lat": 49.1733, "lon": -0.4600, "type": "Aérodrome", "freq": "120.30"},
+        "LFRS - Nantes": {"lat": 47.1531, "lon": -1.6106, "type": "Aérodrome", "freq": "119.80"},
+        "LFSD - Dijon": {"lat": 47.2689, "lon": 5.0889, "type": "Aérodrome", "freq": "122.10"},
+        "LFSB - Bâle-Mulhouse": {"lat": 47.5897, "lon": 7.5294, "type": "Aéroport", "freq": "119.75"},
+        
+        # Points de report VFR
+        "Château de Vincennes": {"lat": 48.8422, "lon": 2.4364, "type": "Point VFR", "freq": ""},
+        "Tour Eiffel": {"lat": 48.8584, "lon": 2.2945, "type": "Point VFR", "freq": ""},
+        "Château de Versailles": {"lat": 48.8049, "lon": 2.1204, "type": "Point VFR", "freq": ""},
+        "Stade de France": {"lat": 48.9244, "lon": 2.3601, "type": "Point VFR", "freq": ""},
+        "Pont du Gard": {"lat": 43.9475, "lon": 4.5356, "type": "Point VFR", "freq": ""},
+        "Mont Blanc": {"lat": 45.8326, "lon": 6.8652, "type": "Point VFR", "freq": ""},
+    }
+    return nav_points
 
 def calculate_circle_points(center_lat, center_lon, radius_km, num_segments, is_arc=False, start_angle_deg=0, end_angle_deg=360, close_arc=True):
     """Calcul de cercles avec précision Vincenty"""
@@ -1794,10 +1851,48 @@ with tab2:
     with col2:
         st.subheader("Point par relèvement/distance")
         
-        if st.session_state.points_data:
-            start_point_name = st.selectbox("Point de départ", 
-                                          [p['name'] for p in st.session_state.points_data])
-            new_point_name = st.text_input("Nom du nouveau point")
+        # Charger la base de données si nécessaire
+        if st.session_state.nav_database is None:
+            st.session_state.nav_database = load_nav_database()
+        
+        # Sélection du type de point de départ
+        point_source = st.radio("Point de départ", ["Points créés", "Base aéronautique"], key="point_source_type")
+        
+        if point_source == "Points créés":
+            if st.session_state.points_data:
+                start_point_name = st.selectbox("Point de départ", 
+                                              [p['name'] for p in st.session_state.points_data], key="manual_start_point")
+                start_point = next(p for p in st.session_state.points_data if p['name'] == start_point_name)
+                start_lat, start_lon = start_point['lat'], start_point['lon']
+            else:
+                st.info("Créez d'abord un point manuel")
+                start_lat, start_lon = None, None
+        else:
+            # Filtrage par type
+            nav_types = list(set([data['type'] for data in st.session_state.nav_database.values()]))
+            selected_type = st.selectbox("Type de point", ["Tous"] + nav_types, key="nav_type_filter")
+            
+            # Filtrer les points selon le type
+            if selected_type == "Tous":
+                filtered_points = st.session_state.nav_database
+            else:
+                filtered_points = {name: data for name, data in st.session_state.nav_database.items() 
+                                 if data['type'] == selected_type}
+            
+            if filtered_points:
+                start_point_name = st.selectbox("Point aéronautique", 
+                                              list(filtered_points.keys()), key="nav_start_point")
+                nav_point = filtered_points[start_point_name]
+                start_lat, start_lon = nav_point['lat'], nav_point['lon']
+                
+                # Afficher les infos du point sélectionné
+                st.info(f"📍 **{start_point_name}** - {nav_point['type']} - Freq: {nav_point['freq']}")
+            else:
+                st.warning("Aucun point de ce type")
+                start_lat, start_lon = None, None
+        
+        if start_lat is not None and start_lon is not None:
+            new_point_name = st.text_input("Nom du nouveau point", key="new_point_name_reldist")
             
             col_dist, col_bear = st.columns(2)
             with col_dist:
@@ -1807,11 +1902,12 @@ with tab2:
                 bearing_deg = st.number_input("Gisement (degrés)", value=0.0, min_value=0.0, max_value=359.9, key="points_bearing")
             
             if st.button("🎯 Créer Point", use_container_width=True):
-                if new_point_name and start_point_name and not any(p['name'] == new_point_name for p in st.session_state.points_data):
-                    start_point = next(p for p in st.session_state.points_data if p['name'] == start_point_name)
+                if new_point_name and not any(p['name'] == new_point_name for p in st.session_state.points_data):
                     distance_km = distance_val * 1.852 if distance_unit == "nautiques" else distance_val / 1000
                     
-                    new_lat, new_lon = create_point_from_bearing_distance(start_point, distance_km, bearing_deg)
+                    new_lat, new_lon = create_point_from_bearing_distance(
+                        {"lat": start_lat, "lon": start_lon}, distance_km, bearing_deg
+                    )
                     
                     st.session_state.points_data.append({
                         "type": "Point", "name": new_point_name, "lat": new_lat, "lon": new_lon,
@@ -1821,8 +1917,6 @@ with tab2:
                     st.rerun()
                 else:
                     st.error("Nom requis et unique")
-        else:
-            st.info("Créez d'abord un point de référence")
         
         st.markdown("---")
         st.subheader("Import en masse")
