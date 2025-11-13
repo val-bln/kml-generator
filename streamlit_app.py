@@ -269,6 +269,30 @@ def dms_to_dd(degrees, minutes, seconds, direction):
     dd = degrees + minutes/60 + seconds/3600
     return -dd if direction in ['S', 'W'] else dd
 
+def gps_to_calamar(lat, lon):
+    """Convertit des coordonnées GPS vers Calamar"""
+    calamar_points = np.array([
+        [0.0, 0.0],
+        [683.0, 921.0],
+        [284.73, -398.51]
+    ])
+    
+    gps_points = np.array([
+        [44.52041351, -1.11661145],
+        [44.523935, -1.130166],
+        [44.51600897, -1.11683657]
+    ])
+    
+    # Matrice inverse pour conversion GPS -> Calamar
+    A = np.column_stack([gps_points, np.ones(3)])
+    x_params = np.linalg.lstsq(A, calamar_points[:, 0], rcond=None)[0]
+    y_params = np.linalg.lstsq(A, calamar_points[:, 1], rcond=None)[0]
+    
+    x_calamar = x_params[0] * lat + x_params[1] * lon + x_params[2]
+    y_calamar = y_params[0] * lat + y_params[1] * lon + y_params[2]
+    
+    return x_calamar, y_calamar
+
 def calculate_circle_points(center_lat, center_lon, radius_km, num_segments, is_arc=False, start_angle_deg=0, end_angle_deg=360, close_arc=True):
     """Calcul de cercles avec précision Vincenty"""
     points = []
@@ -1604,22 +1628,47 @@ with tab1:
             - Import manuel des couleurs
             """)
     
-    with st.expander("⚠️ Problème de couleur magenta dans SD VFR Next ?"):
+    with st.expander("⚠️ Problème des couleurs dans SD VFR Next"):
         st.markdown("""
-        **Pourquoi tout est magenta ?**
+        ### Pourquoi tout est magenta dans SD VFR Next ?
         
-        C'est normal ! Tippecanoe (qui crée les MBTiles) ne transfère pas les couleurs.
+        **C'est normal !** Tippecanoe (qui crée les MBTiles) ne peut pas transférer les informations de style.
+        Les MBTiles ne contiennent que les géométries, pas les couleurs.
+        """)
         
-        **Solutions :**
+        col1, col2 = st.columns(2)
         
-        📄 **Recommandé : Utilisez le KML** pour SDVFR classique (conserve les couleurs)
+        with col1:
+            st.markdown("""
+            #### 🟢 Solutions disponibles :
+            - ✅ **MBTiles unique** (rapide, tout magenta)
+            - ✅ **MBTiles par couleur** (plus de fichiers, couleurs OK)
+            - ✅ **KML** (couleurs parfaites)
+            - ✅ **Choix selon vos besoins**
+            """)
         
-        ⚙️ **Pour SD VFR Next :** Configuration manuelle dans l'app
-        - Accédez aux paramètres de la couche importée
-        - Créez des règles de style basées sur les noms d'objets
-        - Exemple : "Si nom contient 'rouge' alors couleur = rouge"
+        with col2:
+            st.markdown("""
+            #### 🔴 Ce qui ne fonctionne PAS :
+            - ❌ Fichiers de style externes
+            - ❌ Propriétés de couleur dans MBTiles
+            - ❌ Import automatique des couleurs
+            - ❌ Solutions "magiques"
+            """)
         
-        **Note :** C'est une limitation technique des MBTiles, pas un bug de cet outil.
+        st.markdown("""
+        ### Solutions pour SD VFR Next :
+        
+        **Problème :** SD VFR Next applique le style à l'ensemble du MBTiles.
+        
+        **2 options disponibles :**
+        
+        1. **Fichier unique** : Rapide mais tout en magenta
+        2. **Fichiers par couleur** : Plus de fichiers mais couleurs respectées
+           - Points dans un fichier séparé (couleur standard)
+           - Chaque couleur de ligne/polygone = un fichier
+        
+        **Vous choisissez** selon vos besoins !
         """)
 
 # ONGLET POINTS
@@ -2585,51 +2634,6 @@ with tab5:
 
 # ONGLET DIVERS  
 with tab6:
-    st.subheader("⚠️ Problème des couleurs dans SD VFR Next")
-    
-    st.markdown("""
-    ### Pourquoi tout est magenta dans SD VFR Next ?
-    
-    **C'est normal !** Tippecanoe (qui crée les MBTiles) ne peut pas transférer les informations de style.
-    Les MBTiles ne contiennent que les géométries, pas les couleurs.
-    """)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        #### 🟢 Solutions disponibles :
-        - ✅ **MBTiles unique** (rapide, tout magenta)
-        - ✅ **MBTiles par couleur** (plus de fichiers, couleurs OK)
-        - ✅ **KML** (couleurs parfaites)
-        - ✅ **Choix selon vos besoins**
-        """)
-    
-    with col2:
-        st.markdown("""
-        #### 🔴 Ce qui ne fonctionne PAS :
-        - ❌ Fichiers de style externes
-        - ❌ Propriétés de couleur dans MBTiles
-        - ❌ Import automatique des couleurs
-        - ❌ Solutions "magiques"
-        """)
-    
-    st.markdown("""
-    ### Solutions pour SD VFR Next :
-    
-    **Problème :** SD VFR Next applique le style à l'ensemble du MBTiles.
-    
-    **2 options disponibles :**
-    
-    1. **Fichier unique** : Rapide mais tout en magenta
-    2. **Fichiers par couleur** : Plus de fichiers mais couleurs respectées
-       - Points dans un fichier séparé (couleur standard)
-       - Chaque couleur de ligne/polygone = un fichier
-    
-    **Vous choisissez** selon vos besoins !
-    """)
-    
-    st.markdown("---")
     st.subheader("🔄 Convertisseur de coordonnées GPS")
     
     col1, col2 = st.columns(2)
@@ -2711,6 +2715,11 @@ with tab6:
         
         st.write("**Degrés Minutes Secondes (DMS)**")
         st.code(f"Latitude:  {lat_deg_dms}° {lat_min_dms}' {lat_sec_dms:.3f}\" {lat_dir_dms}\nLongitude: {lon_deg_dms}° {lon_min_dms}' {lon_sec_dms:.3f}\" {lon_dir_dms}")
+        
+        # Calamar
+        x_calamar, y_calamar = gps_to_calamar(lat_dd, lon_dd)
+        st.write("**Calamar**")
+        st.code(f"Axe Y: {x_calamar:.2f} mL\nAxe X: {y_calamar:.2f} mD")
         
         # Formats spéciaux
         st.write("**Formats spéciaux**")
