@@ -410,6 +410,142 @@ def create_point_from_bearing_distance(start_point, distance_km, bearing_deg):
     
     return math.degrees(lat2_rad), math.degrees(lon2_rad)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FONCTIONS DE TRANSFORMATION (Translation / Rotation)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_geometry_centroid(points_lonlat):
+    """Calcule le centroïde (lon, lat) d'une liste de points (lon, lat)."""
+    lons = [p[0] for p in points_lonlat]
+    lats = [p[1] for p in points_lonlat]
+    return sum(lons) / len(lons), sum(lats) / len(lats)
+
+
+def translate_point_geo(lat, lon, delta_lat_dd, delta_lon_dd):
+    """
+    Translate un point GPS par un delta en degrés décimaux.
+    delta_lat_dd : déplacement en latitude (positif = Nord)
+    delta_lon_dd : déplacement en longitude (positif = Est)
+    """
+    return lat + delta_lat_dd, lon + delta_lon_dd
+
+
+def translate_point_vincenty(lat, lon, bearing_deg, distance_m):
+    """
+    Translate un point GPS selon un cap et une distance (mètres) via Vincenty direct.
+    Utile pour translation Calamar (axe mL/mD) et géo en mètres.
+    """
+    if distance_m == 0:
+        return lat, lon
+    return create_point_from_bearing_distance({"lat": lat, "lon": lon}, distance_m / 1000.0, bearing_deg)
+
+
+def calamar_delta_to_geo_delta(delta_x_m, delta_y_m):
+    """
+    Convertit un déplacement dans le repère Calamar (axe X = mD/mG, axe Y = mL/mC)
+    en déplacement géographique (delta_lat_dd, delta_lon_dd) en degrés décimaux,
+    en passant par la matrice de transformation Calamar <-> GPS.
+
+    Convention Calamar :
+        Axe Y positif = mL (vers l'Est dans le repère Calamar)
+        Axe X positif = mD (vers le Sud dans le repère Calamar)
+
+    On traduit le déplacement via la matrice linéaire Calamar->GPS déjà utilisée
+    dans l'application, en prenant la différence autour de l'origine (0, 0).
+    """
+    gps_origin = np.array([44.52041351, -1.11661145])
+
+    calamar_pts = np.array([[0.0, 0.0], [683.0, 921.0], [284.73, -398.51]])
+    gps_pts = np.array([
+        [44.52041351, -1.11661145],
+        [44.523935,   -1.130166],
+        [44.51600897, -1.11683657]
+    ])
+    A = np.column_stack([calamar_pts, np.ones(3)])
+    lat_params = np.linalg.lstsq(A, gps_pts[:, 0], rcond=None)[0]
+    lon_params = np.linalg.lstsq(A, gps_pts[:, 1], rcond=None)[0]
+
+    # Origine Calamar (0,0) -> GPS origine
+    # Origine + delta Calamar -> GPS destination
+    # Le delta GPS = différence des deux
+    y_calamar_dest = delta_y_m   # axe Y calamar (mL positif)
+    x_calamar_dest = delta_x_m   # axe X calamar (mD positif)
+
+    dest_lat = lat_params[0] * y_calamar_dest + lat_params[1] * x_calamar_dest + lat_params[2]
+    dest_lon = lon_params[0] * y_calamar_dest + lon_params[1] * x_calamar_dest + lon_params[2]
+
+    delta_lat = dest_lat - gps_origin[0]
+    delta_lon = dest_lon - gps_origin[1]
+    return delta_lat, delta_lon
+
+
+def rotate_point_around_center(lat, lon, center_lat, center_lon, angle_deg):
+    """
+    Fait tourner un point (lat, lon) autour d'un centre (center_lat, center_lon)
+    d'un angle en degrés (positif = sens horaire, comme les gisements).
+    Utilise distance + gisement Vincenty pour une précision géodésique.
+    """
+    if lat == center_lat and lon == center_lon:
+        return lat, lon
+
+    dist_m = calculate_distance(center_lat, center_lon, lat, lon)
+    bearing = calculate_bearing(center_lat, center_lon, lat, lon)
+    new_bearing = (bearing + angle_deg) % 360
+    new_lat, new_lon = create_point_from_bearing_distance(
+        {"lat": center_lat, "lon": center_lon}, dist_m / 1000.0, new_bearing
+    )
+    return new_lat, new_lon
+
+
+def translate_geometry_points(points_lonlat, delta_lat_dd, delta_lon_dd):
+    """Translate une liste de (lon, lat) par un delta en degrés décimaux."""
+    return [(lon + delta_lon_dd, lat + delta_lat_dd) for lon, lat in points_lonlat]
+
+
+def rotate_geometry_points(points_lonlat, center_lon, center_lat, angle_deg):
+    """Fait tourner une liste de (lon, lat) autour d'un centre."""
+    result = []
+    for lon, lat in points_lonlat:
+        new_lat, new_lon = rotate_point_around_center(lat, lon, center_lat, center_lon, angle_deg)
+        result.append((new_lon, new_lat))
+    return result
+
+
+def apply_transform_to_object(obj, collection, delta_lat=0.0, delta_lon=0.0,
+                               rotation_deg=0.0, center_lat=None, center_lon=None):
+    """
+    Applique translation + rotation à n'importe quel objet de session_state.
+    Modifie l'objet en place dans sa collection.
+    collection : 'points', 'lines', 'circles', 'rectangles'
+    """
+    if collection == 'points':
+        new_lat = obj['lat'] + delta_lat
+        new_lon = obj['lon'] + delta_lon
+        if rotation_deg != 0.0 and center_lat is not None:
+            new_lat, new_lon = rotate_point_around_center(new_lat, new_lon, center_lat, center_lon, rotation_deg)
+        obj['lat'] = new_lat
+        obj['lon'] = new_lon
+
+    elif collection in ('lines', 'circles', 'rectangles'):
+        if 'points' in obj:
+            new_pts = translate_geometry_points(obj['points'], delta_lat, delta_lon)
+            if rotation_deg != 0.0 and center_lat is not None:
+                new_pts = rotate_geometry_points(new_pts, center_lon, center_lat, rotation_deg)
+            obj['points'] = new_pts
+
+        # Mettre à jour les métadonnées de centre si elles existent
+        for key_lat, key_lon in [('center_lat', 'center_lon')]:
+            if key_lat in obj:
+                new_clat = obj[key_lat] + delta_lat
+                new_clon = obj[key_lon] + delta_lon
+                if rotation_deg != 0.0 and center_lat is not None:
+                    new_clat, new_clon = rotate_point_around_center(
+                        new_clat, new_clon, center_lat, center_lon, rotation_deg
+                    )
+                obj[key_lat] = new_clat
+                obj[key_lon] = new_clon
+
+
 def parse_kml_file(kml_content):
     """Parse un fichier KML et extrait les objets avec leurs styles"""
     try:
@@ -2952,6 +3088,196 @@ with tab7:
     else:
         st.markdown("---")
         st.info("💡 Aucun objet KML présent. Créez des objets dans les autres onglets ou importez un fichier KML.")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SECTION TRANSFORMER
+    # ═══════════════════════════════════════════════════════════════════════════
+    if any([st.session_state.points_data, st.session_state.lines_data,
+            st.session_state.circles_data, st.session_state.rectangles_data]):
+
+        st.markdown("---")
+        st.subheader("🔄 Transformer des géométries")
+
+        # ── Inventaire de tous les objets ──────────────────────────────────
+        all_objects_t = []
+        for obj in st.session_state.points_data:
+            all_objects_t.append({"label": f"📍 {obj['name']}", "collection": "points", "obj": obj})
+        for obj in st.session_state.lines_data:
+            all_objects_t.append({"label": f"📏 {obj['name']}", "collection": "lines", "obj": obj})
+        for obj in st.session_state.circles_data:
+            all_objects_t.append({"label": f"⭕ {obj['name']}", "collection": "circles", "obj": obj})
+        for obj in st.session_state.rectangles_data:
+            t_label = "Rectangle" if "length_km" in obj else "Polygone"
+            all_objects_t.append({"label": f"🔷 {obj['name']} ({t_label})", "collection": "rectangles", "obj": obj})
+
+        labels_t = [o["label"] for o in all_objects_t]
+
+        col_sel1, col_sel2 = st.columns([3, 1])
+        with col_sel1:
+            selected_labels_t = st.multiselect(
+                "Sélectionner les géométries à transformer",
+                labels_t, default=[], key="transform_selected_objects"
+            )
+        with col_sel2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.checkbox("Tout", key="transform_select_all"):
+                selected_labels_t = labels_t
+
+        if selected_labels_t:
+            selected_items_t = [o for o in all_objects_t if o["label"] in selected_labels_t]
+            st.caption(f"{len(selected_items_t)} géométrie(s) sélectionnée(s)")
+
+            # ── Opération ──────────────────────────────────────────────────
+            operation_t = st.radio(
+                "Opération",
+                ["Translation", "Rotation", "Translation + Rotation"],
+                horizontal=True, key="transform_operation"
+            )
+
+            col_trans, col_rot = st.columns(2)
+
+            # ── Paramètres Translation ─────────────────────────────────────
+            delta_lat_t = 0.0
+            delta_lon_t = 0.0
+
+            if operation_t in ("Translation", "Translation + Rotation"):
+                with col_trans:
+                    st.markdown("**Translation**")
+                    trans_mode_t = st.radio(
+                        "Repère",
+                        ["Géographique", "Calamar (m)"],
+                        horizontal=True, key="transform_trans_mode"
+                    )
+
+                    if trans_mode_t == "Géographique":
+                        geo_unit_t = st.selectbox(
+                            "Unité",
+                            ["Degrés décimaux (DD)", "Degrés Minutes (DM)", "Degrés Minutes Secondes (DMS)"],
+                            key="transform_geo_unit"
+                        )
+                        if geo_unit_t == "Degrés décimaux (DD)":
+                            delta_lat_t = st.number_input("ΔLat (° + = Nord)", value=0.0, format="%.6f", key="trans_dd_lat")
+                            delta_lon_t = st.number_input("ΔLon (° + = Est)",  value=0.0, format="%.6f", key="trans_dd_lon")
+
+                        elif geo_unit_t == "Degrés Minutes (DM)":
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                st.caption("Latitude")
+                                dlat_deg = st.number_input("°", value=0, min_value=0, key="trans_dm_lat_deg")
+                                dlat_min = st.number_input("'", value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dm_lat_min")
+                                dlat_dir = st.selectbox("N/S", ["N", "S"], key="trans_dm_lat_dir")
+                                delta_lat_t = (dlat_deg + dlat_min / 60.0) * (1 if dlat_dir == "N" else -1)
+                            with c2:
+                                st.caption("Longitude")
+                                dlon_deg = st.number_input("°", value=0, min_value=0, key="trans_dm_lon_deg")
+                                dlon_min = st.number_input("'", value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dm_lon_min")
+                                dlon_dir = st.selectbox("E/W", ["E", "W"], key="trans_dm_lon_dir")
+                                delta_lon_t = (dlon_deg + dlon_min / 60.0) * (1 if dlon_dir == "E" else -1)
+
+                        else:  # DMS
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                st.caption("Latitude")
+                                dlat_deg = st.number_input("°", value=0, min_value=0, key="trans_dms_lat_deg")
+                                dlat_min = st.number_input("'", value=0, min_value=0, max_value=59, key="trans_dms_lat_min")
+                                dlat_sec = st.number_input('"', value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dms_lat_sec")
+                                dlat_dir = st.selectbox("N/S", ["N", "S"], key="trans_dms_lat_dir")
+                                delta_lat_t = (dlat_deg + dlat_min / 60.0 + dlat_sec / 3600.0) * (1 if dlat_dir == "N" else -1)
+                            with c2:
+                                st.caption("Longitude")
+                                dlon_deg = st.number_input("°", value=0, min_value=0, key="trans_dms_lon_deg")
+                                dlon_min = st.number_input("'", value=0, min_value=0, max_value=59, key="trans_dms_lon_min")
+                                dlon_sec = st.number_input('"', value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dms_lon_sec")
+                                dlon_dir = st.selectbox("E/W", ["E", "W"], key="trans_dms_lon_dir")
+                                delta_lon_t = (dlon_deg + dlon_min / 60.0 + dlon_sec / 3600.0) * (1 if dlon_dir == "E" else -1)
+
+                        st.caption(f"ΔLat = {delta_lat_t:+.6f}°  |  ΔLon = {delta_lon_t:+.6f}°")
+
+                    else:  # Calamar
+                        st.caption("Axe Y = mL (Est) / mC (Ouest) | Axe X = mD (Sud) / mG (Nord)")
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            cal_y_val = st.number_input("Axe Y (m)", value=0.0, format="%.2f", key="trans_cal_y_val")
+                            cal_y_unit = st.selectbox("Sens Y", ["mL (Est)", "mC (Ouest)"], key="trans_cal_y_unit")
+                            cal_y_s = cal_y_val if cal_y_unit.startswith("mL") else -cal_y_val
+                        with c2:
+                            cal_x_val = st.number_input("Axe X (m)", value=0.0, format="%.2f", key="trans_cal_x_val")
+                            cal_x_unit = st.selectbox("Sens X", ["mD (Sud)", "mG (Nord)"], key="trans_cal_x_unit")
+                            cal_x_s = cal_x_val if cal_x_unit.startswith("mD") else -cal_x_val
+                        delta_lat_t, delta_lon_t = calamar_delta_to_geo_delta(cal_x_s, cal_y_s)
+                        st.caption(f"→ ΔLat = {delta_lat_t:+.6f}°  |  ΔLon = {delta_lon_t:+.6f}°")
+
+            # ── Paramètres Rotation ────────────────────────────────────────
+            rotation_t = 0.0
+            rot_center_mode_t = "Centroïde automatique"
+            rot_center_lat_t, rot_center_lon_t = None, None
+
+            if operation_t in ("Rotation", "Translation + Rotation"):
+                with col_rot:
+                    st.markdown("**Rotation**")
+                    rotation_t = st.number_input(
+                        "Angle (° sens horaire)",
+                        value=0.0, min_value=-360.0, max_value=360.0, format="%.2f",
+                        key="transform_rotation_deg"
+                    )
+                    rot_center_mode_t = st.radio(
+                        "Centre de rotation",
+                        ["Centroïde automatique", "Point existant", "Coordonnées manuelles"],
+                        key="transform_rot_center_mode"
+                    )
+                    if rot_center_mode_t == "Point existant":
+                        if st.session_state.points_data:
+                            rot_pt_name = st.selectbox(
+                                "Point pivot",
+                                [p['name'] for p in st.session_state.points_data],
+                                key="transform_rot_pivot_point"
+                            )
+                            rot_pt = next(p for p in st.session_state.points_data if p['name'] == rot_pt_name)
+                            rot_center_lat_t, rot_center_lon_t = rot_pt['lat'], rot_pt['lon']
+                            st.caption(f"Pivot : {rot_center_lat_t:.6f}, {rot_center_lon_t:.6f}")
+                        else:
+                            st.warning("Aucun point — centroïde utilisé.")
+                            rot_center_mode_t = "Centroïde automatique"
+                    elif rot_center_mode_t == "Coordonnées manuelles":
+                        rot_center_lat_t = st.number_input("Lat pivot", value=44.52, format="%.6f", key="transform_rot_center_lat")
+                        rot_center_lon_t = st.number_input("Lon pivot", value=-1.12, format="%.6f", key="transform_rot_center_lon")
+
+            # ── Bouton appliquer ───────────────────────────────────────────
+            st.caption("⚠️ La transformation modifie directement les géométries. Exportez votre KML avant si nécessaire.")
+            if st.button("✅ Appliquer la transformation", use_container_width=True, key="transform_apply_btn"):
+                try:
+                    # Centroïde automatique si besoin
+                    if operation_t in ("Rotation", "Translation + Rotation") and rot_center_mode_t == "Centroïde automatique":
+                        all_pts_c = []
+                        for item in selected_items_t:
+                            o, col_ = item["obj"], item["collection"]
+                            if col_ == "points":
+                                all_pts_c.append((o['lon'], o['lat']))
+                            elif 'points' in o:
+                                all_pts_c.extend(o['points'])
+                        if all_pts_c:
+                            c_lon_auto, c_lat_auto = get_geometry_centroid(all_pts_c)
+                            rot_center_lat_t, rot_center_lon_t = c_lat_auto, c_lon_auto
+                        else:
+                            st.error("Impossible de calculer le centroïde.")
+                            st.stop()
+
+                    for item in selected_items_t:
+                        o, col_ = item["obj"], item["collection"]
+                        if operation_t == "Translation + Rotation":
+                            apply_transform_to_object(o, col_, delta_lat=delta_lat_t, delta_lon=delta_lon_t)
+                            apply_transform_to_object(o, col_, rotation_deg=rotation_t,
+                                                      center_lat=rot_center_lat_t, center_lon=rot_center_lon_t)
+                        elif operation_t == "Translation":
+                            apply_transform_to_object(o, col_, delta_lat=delta_lat_t, delta_lon=delta_lon_t)
+                        else:
+                            apply_transform_to_object(o, col_, rotation_deg=rotation_t,
+                                                      center_lat=rot_center_lat_t, center_lon=rot_center_lon_t)
+
+                    st.success(f"✅ Transformation appliquée à {len(selected_items_t)} géométrie(s) !")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
     
     # Section pour charger des cartes personnalisées
     st.markdown("---")
@@ -3027,7 +3353,8 @@ with tab7:
                     st.rerun()
 
 
-# Footer
-st.markdown("---")
 
-st.markdown("*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*")
+# Footer
+st.markdown('---')
+
+st.markdown('*Générateur KML pour SDVFR - Version Streamlit par Valentin BALAYN*')
