@@ -3027,68 +3027,6 @@ with tab7:
         
         st.markdown("---")
     
-    # Gestion des objets KML
-    if any([st.session_state.points_data, st.session_state.lines_data, st.session_state.circles_data, st.session_state.rectangles_data]):
-        st.markdown("---")
-        st.subheader("🛠️ Gestion des objets KML")
-        
-        # Points
-        if st.session_state.points_data:
-            st.write(f"**📍 Points ({len(st.session_state.points_data)})**")
-            for i, point in enumerate(st.session_state.points_data):
-                col_info, col_action = st.columns([4, 1])
-                with col_info:
-                    st.write(f"**{point['name']}**: {point['lat']:.4f}, {point['lon']:.4f}")
-                with col_action:
-                    if st.button("🗑️", key=f"del_point_viz_{i}"):
-                        st.session_state.points_data.remove(point)
-                        st.rerun()
-        
-        # Lignes
-        if st.session_state.lines_data:
-            st.write(f"**📏 Lignes ({len(st.session_state.lines_data)})**")
-            for i, line in enumerate(st.session_state.lines_data):
-                col_info, col_action = st.columns([4, 1])
-                with col_info:
-                    st.write(f"**{line['name']}**: {len(line['points'])} points, {line['color']}")
-                with col_action:
-                    if st.button("🗑️", key=f"del_line_viz_{i}"):
-                        st.session_state.lines_data.remove(line)
-                        st.rerun()
-        
-        # Cercles
-        if st.session_state.circles_data:
-            st.write(f"**⭕ Cercles/Arcs ({len(st.session_state.circles_data)})**")
-            for i, circle in enumerate(st.session_state.circles_data):
-                radius_display = circle['radius_km'] / 1.852 if circle['radius_unit'] == 'nautiques' else circle['radius_km'] * 1000
-                unit_display = "NM" if circle['radius_unit'] == 'nautiques' else "m"
-                
-                col_info, col_action = st.columns([4, 1])
-                with col_info:
-                    st.write(f"**{circle['name']}**: R={radius_display:.2f}{unit_display}, {circle['color']}")
-                with col_action:
-                    if st.button("🗑️", key=f"del_circle_viz_{i}"):
-                        st.session_state.circles_data.remove(circle)
-                        st.rerun()
-        
-        # Rectangles/Polygones
-        if st.session_state.rectangles_data:
-            st.write(f"**🔷 Polygones/Rectangles ({len(st.session_state.rectangles_data)})**")
-            for i, rect in enumerate(st.session_state.rectangles_data):
-                col_info, col_action = st.columns([4, 1])
-                with col_info:
-                    if 'length_km' in rect:
-                        st.write(f"**{rect['name']}** (Rectangle): {rect['length_km']*1000:.0f}m x {rect['width_km']*1000:.0f}m")
-                    else:
-                        st.write(f"**{rect['name']}** (Polygone): {len(rect['points'])} points")
-                with col_action:
-                    if st.button("🗑️", key=f"del_rect_viz_{i}"):
-                        st.session_state.rectangles_data.remove(rect)
-                        st.rerun()
-    else:
-        st.markdown("---")
-        st.info("💡 Aucun objet KML présent. Créez des objets dans les autres onglets ou importez un fichier KML.")
-
     # ═══════════════════════════════════════════════════════════════════════════
     # SECTION TRANSFORMER
     # ═══════════════════════════════════════════════════════════════════════════
@@ -3278,8 +3216,67 @@ with tab7:
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erreur : {e}")
-    
-    # Section pour charger des cartes personnalisées
+
+    # Gestion des objets KML
+    if any([st.session_state.points_data, st.session_state.lines_data, st.session_state.circles_data, st.session_state.rectangles_data]):
+        st.markdown("---")
+        st.subheader("🛠️ Gestion des objets KML")
+
+        # Points
+        if st.session_state.points_data:
+            st.write(f"**📍 Points ({len(st.session_state.points_data)})**")
+            for i, point in enumerate(st.session_state.points_data):
+                col_info, col_action = st.columns([4, 1])
+                with col_info:
+                    st.write(f"**{point['name']}**: {point['lat']:.4f}, {point['lon']:.4f}")
+                with col_action:
+                    if st.button("🗑️", key=f"del_point_viz_{i}"):
+                        st.session_state.points_data.remove(point)
+                        st.rerun()
+
+        # Lignes
+        if st.session_state.lines_data:
+            st.write(f"**📏 Lignes ({len(st.session_state.lines_data)})**")
+            for i, line in enumerate(st.session_state.lines_data):
+                col_info, col_action = st.columns([4, 1])
+                with col_info:
+                    st.write(f"**{line['name']}**: {len(line['points'])} points, {line['color']}")
+                with col_action:
+                    if st.button("🗑️", key=f"del_line_viz_{i}"):
+                        st.session_state.lines_data.remove(line)
+                        st.rerun()
+
+        # Cercles
+        if st.session_state.circles_data:
+            st.write(f"**⭕ Cercles/Arcs ({len(st.session_state.circles_data)})**")
+            for i, circle in enumerate(st.session_state.circles_data):
+                radius_display = circle['radius_km'] / 1.852 if circle['radius_unit'] == 'nautiques' else circle['radius_km'] * 1000
+                unit_display = "NM" if circle['radius_unit'] == 'nautiques' else "m"
+                col_info, col_action = st.columns([4, 1])
+                with col_info:
+                    st.write(f"**{circle['name']}**: R={radius_display:.2f}{unit_display}, {circle['color']}")
+                with col_action:
+                    if st.button("🗑️", key=f"del_circle_viz_{i}"):
+                        st.session_state.circles_data.remove(circle)
+                        st.rerun()
+
+        # Rectangles/Polygones
+        if st.session_state.rectangles_data:
+            st.write(f"**🔷 Polygones/Rectangles ({len(st.session_state.rectangles_data)})**")
+            for i, rect in enumerate(st.session_state.rectangles_data):
+                col_info, col_action = st.columns([4, 1])
+                with col_info:
+                    if 'length_km' in rect:
+                        st.write(f"**{rect['name']}** (Rectangle): {rect['length_km']*1000:.0f}m x {rect['width_km']*1000:.0f}m")
+                    else:
+                        st.write(f"**{rect['name']}** (Polygone): {len(rect['points'])} points")
+                with col_action:
+                    if st.button("🗑️", key=f"del_rect_viz_{i}"):
+                        st.session_state.rectangles_data.remove(rect)
+                        st.rerun()
+    else:
+        st.markdown("---")
+        st.info("💡 Aucun objet KML présent. Créez des objets dans les autres onglets ou importez un fichier KML.")
     st.markdown("---")
     st.subheader("🗺️ Charger une carte personnalisée")
     
