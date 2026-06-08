@@ -3088,60 +3088,46 @@ with tab7:
                     )
 
                     if trans_mode_t == "Géographique":
-                        geo_unit_t = st.selectbox(
-                            "Unité",
-                            ["Degrés décimaux (DD)", "Degrés Minutes (DM)", "Degrés Minutes Secondes (DMS)"],
-                            key="transform_geo_unit"
+                        # Axe
+                        geo_axis = st.radio(
+                            "Axe",
+                            ["Latitude (Nord/Sud)", "Longitude (Est/Ouest)", "Les deux"],
+                            horizontal=True, key="transform_geo_axis"
                         )
-                        if geo_unit_t == "Degrés décimaux (DD)":
-                            delta_lat_t = st.number_input("ΔLat (° + = Nord)", value=0.0, format="%.6f", key="trans_dd_lat")
-                            delta_lon_t = st.number_input("ΔLon (° + = Est)",  value=0.0, format="%.6f", key="trans_dd_lon")
+                        # Unité
+                        geo_unit_t = st.radio(
+                            "Unité",
+                            ["1 degré", "1 minute", "1 seconde"],
+                            horizontal=True, key="transform_geo_unit"
+                        )
+                        step_dd = {"1 degré": 1.0, "1 minute": 1/60, "1 seconde": 1/3600}[geo_unit_t]
 
-                        elif geo_unit_t == "Degrés Minutes (DM)":
-                            c1, c2 = st.columns(2)
+                        # Sens
+                        c1, c2 = st.columns(2)
+                        if geo_axis in ("Latitude (Nord/Sud)", "Les deux"):
                             with c1:
-                                st.caption("Latitude")
-                                dlat_deg = st.number_input("°", value=0, min_value=0, key="trans_dm_lat_deg")
-                                dlat_min = st.number_input("'", value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dm_lat_min")
-                                dlat_dir = st.selectbox("N/S", ["N", "S"], key="trans_dm_lat_dir")
-                                delta_lat_t = (dlat_deg + dlat_min / 60.0) * (1 if dlat_dir == "N" else -1)
+                                lat_sens = st.radio("Sens lat", ["Nord (+)", "Sud (−)"], horizontal=True, key="trans_geo_lat_sens")
+                                lat_steps = st.number_input("Nb de pas (lat)", value=1, min_value=1, key="trans_geo_lat_steps")
+                                delta_lat_t = step_dd * lat_steps * (1 if lat_sens == "Nord (+)" else -1)
+                        if geo_axis in ("Longitude (Est/Ouest)", "Les deux"):
                             with c2:
-                                st.caption("Longitude")
-                                dlon_deg = st.number_input("°", value=0, min_value=0, key="trans_dm_lon_deg")
-                                dlon_min = st.number_input("'", value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dm_lon_min")
-                                dlon_dir = st.selectbox("E/W", ["E", "W"], key="trans_dm_lon_dir")
-                                delta_lon_t = (dlon_deg + dlon_min / 60.0) * (1 if dlon_dir == "E" else -1)
-
-                        else:  # DMS
-                            c1, c2 = st.columns(2)
-                            with c1:
-                                st.caption("Latitude")
-                                dlat_deg = st.number_input("°", value=0, min_value=0, key="trans_dms_lat_deg")
-                                dlat_min = st.number_input("'", value=0, min_value=0, max_value=59, key="trans_dms_lat_min")
-                                dlat_sec = st.number_input('"', value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dms_lat_sec")
-                                dlat_dir = st.selectbox("N/S", ["N", "S"], key="trans_dms_lat_dir")
-                                delta_lat_t = (dlat_deg + dlat_min / 60.0 + dlat_sec / 3600.0) * (1 if dlat_dir == "N" else -1)
-                            with c2:
-                                st.caption("Longitude")
-                                dlon_deg = st.number_input("°", value=0, min_value=0, key="trans_dms_lon_deg")
-                                dlon_min = st.number_input("'", value=0, min_value=0, max_value=59, key="trans_dms_lon_min")
-                                dlon_sec = st.number_input('"', value=0.0, min_value=0.0, max_value=59.999, format="%.3f", key="trans_dms_lon_sec")
-                                dlon_dir = st.selectbox("E/W", ["E", "W"], key="trans_dms_lon_dir")
-                                delta_lon_t = (dlon_deg + dlon_min / 60.0 + dlon_sec / 3600.0) * (1 if dlon_dir == "E" else -1)
+                                lon_sens = st.radio("Sens lon", ["Est (+)", "Ouest (−)"], horizontal=True, key="trans_geo_lon_sens")
+                                lon_steps = st.number_input("Nb de pas (lon)", value=1, min_value=1, key="trans_geo_lon_steps")
+                                delta_lon_t = step_dd * lon_steps * (1 if lon_sens == "Est (+)" else -1)
 
                         st.caption(f"ΔLat = {delta_lat_t:+.6f}°  |  ΔLon = {delta_lon_t:+.6f}°")
 
                     else:  # Calamar
-                        st.caption("Axe Y = mL (Est) / mC (Ouest) | Axe X = mD (Sud) / mG (Nord)")
+                        st.caption("Axe Y = mL / mC  |  Axe X = mD / mG")
                         c1, c2 = st.columns(2)
                         with c1:
                             cal_y_val = st.number_input("Axe Y (m)", value=0.0, format="%.2f", key="trans_cal_y_val")
-                            cal_y_unit = st.selectbox("Sens Y", ["mL (Est)", "mC (Ouest)"], key="trans_cal_y_unit")
-                            cal_y_s = cal_y_val if cal_y_unit.startswith("mL") else -cal_y_val
+                            cal_y_unit = st.selectbox("Sens Y", ["mL", "mC"], key="trans_cal_y_unit")
+                            cal_y_s = cal_y_val if cal_y_unit == "mL" else -cal_y_val
                         with c2:
                             cal_x_val = st.number_input("Axe X (m)", value=0.0, format="%.2f", key="trans_cal_x_val")
-                            cal_x_unit = st.selectbox("Sens X", ["mD (Sud)", "mG (Nord)"], key="trans_cal_x_unit")
-                            cal_x_s = cal_x_val if cal_x_unit.startswith("mD") else -cal_x_val
+                            cal_x_unit = st.selectbox("Sens X", ["mD", "mG"], key="trans_cal_x_unit")
+                            cal_x_s = cal_x_val if cal_x_unit == "mD" else -cal_x_val
                         delta_lat_t, delta_lon_t = calamar_delta_to_geo_delta(cal_x_s, cal_y_s)
                         st.caption(f"→ ΔLat = {delta_lat_t:+.6f}°  |  ΔLon = {delta_lon_t:+.6f}°")
 
